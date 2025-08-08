@@ -5,14 +5,15 @@ import terser from '@rollup/plugin-terser';
 
 const config = {
   input: 'src/index.js',
-  external: [],
+  external: [], // No external dependencies
   plugins: [
-    nodeResolve(),
+    nodeResolve({
+      preferBuiltins: false
+    }),
     commonjs(),
     babel({
       babelHelpers: 'bundled',
-      exclude: 'node_modules/**',
-      presets: ['@babel/preset-env']
+      exclude: 'node_modules/**'
     })
   ]
 };
@@ -48,12 +49,13 @@ export default [
       sourcemap: true
     }
   },
-  // CommonJS build
+  // CommonJS build  
   {
     ...config,
     output: {
       file: 'dist/index.cjs.js',
       format: 'cjs',
+      exports: 'named',
       sourcemap: true
     }
   }
