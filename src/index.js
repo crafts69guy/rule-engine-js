@@ -16,14 +16,32 @@ export function createRuleEngine(config = {}) {
   registerBuiltinOperators(engine, engine.pathResolver, engine.config);
 
   return {
+    // Core functionality
     evaluateExpr: engine.evaluateExpr.bind(engine),
     registerOperator: engine.registerOperator.bind(engine),
+
+    // Metadata & monitoring
     getOperators: engine.getOperators.bind(engine),
     getMetrics: engine.getMetrics.bind(engine),
-    clearCache: engine.clearCache.bind(engine),
     getConfig: engine.getConfig.bind(engine),
     getCacheStats: engine.getCacheStats.bind(engine),
-    OPERATOR_NAMES
+    clearCache: engine.clearCache.bind(engine),
+
+    // 🎯 SAFE path resolution methods(no direct pathResolver access)
+    resolvePath: (context, path, defaultValue) =>
+      engine.pathResolver.resolve(context, path, defaultValue),
+
+    resolveValue: (context, value, defaultValue) =>
+      engine.pathResolver.resolveValueOrLiteral(context, value, defaultValue),
+
+    // Constants
+    OPERATOR_NAMES,
+
+    // 🔧 ADVANCED: Only for custom operator development
+    _internal: {
+      pathResolver: engine.pathResolver,
+      engine: engine,
+    },
   };
 }
 
