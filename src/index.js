@@ -27,7 +27,7 @@ export function createRuleEngine(config = {}) {
     getCacheStats: engine.getCacheStats.bind(engine),
     clearCache: engine.clearCache.bind(engine),
 
-    // 🎯 SAFE path resolution methods(no direct pathResolver access)
+    // Safe path resolution methods
     resolvePath: (context, path, defaultValue) =>
       engine.pathResolver.resolve(context, path, defaultValue),
 
@@ -37,7 +37,7 @@ export function createRuleEngine(config = {}) {
     // Constants
     OPERATOR_NAMES,
 
-    // 🔧 ADVANCED: Only for custom operator development
+    // Advanced: Only for custom operator development
     _internal: {
       pathResolver: engine.pathResolver,
       engine: engine,
@@ -51,3 +51,6 @@ export { RuleEngineError, OperatorError, ValidationError } from './utils/errors.
 export { PathResolver } from './core/PathResolver.js';
 export { RuleEngine } from './core/RuleEngine.js';
 export { TypeUtils } from './utils/TypeUtils.js';
+
+// Export rule helpers
+export { createRuleHelpers, RuleHelpers } from './helpers/index.js';
