@@ -1,0 +1,30 @@
+cat > .npmignore << 'EOF'
+# Source files
+src/
+tests/
+benchmarks/
+examples/
+docs/
+scripts/
+
+# Config files
+.eslintrc.js
+.prettierrc
+babel.config.js
+rollup.config.js
+jest.config.js
+tsconfig.json
+
+# Development files
+.github/
+.gitignore
+*.log
+coverage/
+
+# Keep these in npm package
+!dist/
+!types/
+!README.md
+!LICENSE
+!CHANGELOG.md
+EOF
