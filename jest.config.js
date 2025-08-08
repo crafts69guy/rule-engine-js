@@ -1,5 +1,6 @@
 export default {
   testEnvironment: 'node',
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/index.js'
@@ -20,5 +21,6 @@ export default {
   ],
   transform: {
     '^.+\\.js$': 'babel-jest'
-  }
+  },
+  verbose: true
 };
