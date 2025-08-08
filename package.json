@@ -1,14 +1,67 @@
 {
-  "name": "rule-engine",
+  "name": "rule-engine-js",
   "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "A high-performance, secure rule engine with dynamic field comparison support",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "browser": "dist/index.js",
+  "types": "types/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.cjs.js",
+      "browser": "./dist/index.js",
+      "types": "./types/index.d.ts"
+    },
+    "./package.json": "./package.json"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "files": [
+    "dist/",
+    "types/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "npm run clean && npm run build:lib && npm run build:types",
+    "build:lib": "rollup -c",
+    "build:types": "tsc --emitDeclarationOnly",
+    "clean": "rimraf dist types",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/ tests/ --ext .js",
+    "lint:fix": "eslint src/ tests/ --ext .js --fix",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\"",
+    "prepublishOnly": "npm run test && npm run build"
+  },
+  "keywords": [
+    "rule-engine",
+    "business-rules",
+    "expression-evaluator",
+    "conditional-logic",
+    "dynamic-comparison",
+    "validation",
+    "filtering",
+    "javascript",
+    "performance"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/rule-engine-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/rule-engine-js/issues"
+  },
+  "homepage": "https://github.com/yourusername/rule-engine-js#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "devDependencies": {
     "@babel/core": "^7.28.0",
     "@babel/preset-env": "^7.28.0",
