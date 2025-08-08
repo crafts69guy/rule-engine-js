@@ -50,16 +50,16 @@
     "javascript",
     "performance"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Crafts 69 Guy <crafts69.guy@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/rule-engine-js.git"
+    "url": "git+https://github.com/crafts69guy/rule-engine-js.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/rule-engine-js/issues"
+    "url": "https://github.com/crafts69guy/rule-engine-js/issues"
   },
-  "homepage": "https://github.com/yourusername/rule-engine-js#readme",
+  "homepage": "https://github.com/crafts69guy/rule-engine-js#readme",
   "engines": {
     "node": ">=16.0.0"
   },
