@@ -80,10 +80,19 @@ export class SpecialOperators extends BaseOperator {
 
       const [left] = args;
 
-      // Resolve value
-      const resolved = this.pathResolver.resolveValueOrLiteral(context, left);
+      // First, check if this is even a string (could be a literal value)
+      if (typeof left !== 'string') {
+        // If it's not a string, check if the literal value is null
+        const isNull = left === null || left === undefined;
+        return type === 'IS_NULL' ? isNull : !isNull;
+      }
 
-      const isNull = resolved === null || resolved === undefined;
+      // For string paths, use resolve with PathResolver's NOT_FOUND symbol
+      const resolved = this.pathResolver.resolve(context, left, this.pathResolver.NOT_FOUND);
+
+      // Check if path doesn't exist OR value is null/undefined
+      const isNull =
+        resolved === this.pathResolver.NOT_FOUND || resolved === null || resolved === undefined;
 
       return type === 'IS_NULL' ? isNull : !isNull;
     };
