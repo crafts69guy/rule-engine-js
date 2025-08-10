@@ -80,7 +80,7 @@ describe('Comparison Operators', () => {
     it('should handle invalid arguments', () => {
       const result = engine.evaluateExpr({ eq: ['user.name'] }, global.testContext);
       expect(result.success).toBe(false);
-      expect(result.error).toContain('EQ operator requires 2 arguments');
+      expect(result.error).toContain('EQ operator requires 2-3 arguments');
     });
 
     it('should handle non-numeric values in numeric operators', () => {
