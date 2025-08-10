@@ -28,7 +28,14 @@ export class RegexOperator extends BaseOperator {
    */
   createRegexOperator() {
     return (args, context) => {
-      this.validateArgs(args, 2, 'REGEX');
+      // Validate arguments - can be 2 or 3 args
+      if (!Array.isArray(args) || args.length < 2 || args.length > 3) {
+        throw new OperatorError(
+          'REGEX operator requires 2 or 3 arguments',
+          'REGEX',
+          { args, actualLength: args.length }
+        );
+      }
 
       const [left, right, options = {}] = args;
 
@@ -54,7 +61,8 @@ export class RegexOperator extends BaseOperator {
 
       try {
         // Get compiled regex from cache or create new one
-        const regex = this.getCompiledRegex(pattern, options.flags || '');
+        const flags = options.flags || '';
+        const regex = this.getCompiledRegex(pattern, flags);
         return regex.test(text);
       } catch (error) {
         throw new OperatorError(
