@@ -20,54 +20,55 @@ export class RuleHelpers {
   /**
    * Equal to
    */
-  eq(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.EQ]: [left, right, options] }
+  eq(left, right, options) {
+    // If options is explicitly passed (even if undefined), include it
+    return arguments.length > 2
+      ? { [this.ops.EQ]: [left, right, options || {}] }
       : { [this.ops.EQ]: [left, right] };
   }
 
   /**
    * Not equal to
    */
-  neq(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.NEQ]: [left, right, options] }
+  neq(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.NEQ]: [left, right, options || {}] }
       : { [this.ops.NEQ]: [left, right] };
   }
 
   /**
    * Greater than
    */
-  gt(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.GT]: [left, right, options] }
+  gt(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.GT]: [left, right, options || {}] }
       : { [this.ops.GT]: [left, right] };
   }
 
   /**
    * Greater than or equal
    */
-  gte(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.GTE]: [left, right, options] }
+  gte(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.GTE]: [left, right, options || {}] }
       : { [this.ops.GTE]: [left, right] };
   }
 
   /**
    * Less than
    */
-  lt(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.LT]: [left, right, options] }
+  lt(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.LT]: [left, right, options || {}] }
       : { [this.ops.LT]: [left, right] };
   }
 
   /**
    * Less than or equal
    */
-  lte(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.LTE]: [left, right, options] }
+  lte(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.LTE]: [left, right, options || {}] }
       : { [this.ops.LTE]: [left, right] };
   }
 
@@ -103,36 +104,36 @@ export class RuleHelpers {
   /**
    * String contains
    */
-  contains(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.CONTAINS]: [left, right, options] }
+  contains(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.CONTAINS]: [left, right, options || {}] }
       : { [this.ops.CONTAINS]: [left, right] };
   }
 
   /**
    * String starts with
    */
-  startsWith(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.STARTS_WITH]: [left, right, options] }
+  startsWith(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.STARTS_WITH]: [left, right, options || {}] }
       : { [this.ops.STARTS_WITH]: [left, right] };
   }
 
   /**
    * String ends with
    */
-  endsWith(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.ENDS_WITH]: [left, right, options] }
+  endsWith(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.ENDS_WITH]: [left, right, options || {}] }
       : { [this.ops.ENDS_WITH]: [left, right] };
   }
 
   /**
    * Regular expression match
    */
-  regex(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.REGEX]: [left, right, options] }
+  regex(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.REGEX]: [left, right, options || {}] }
       : { [this.ops.REGEX]: [left, right] };
   }
 
@@ -143,18 +144,18 @@ export class RuleHelpers {
   /**
    * Value is in array
    */
-  in(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.IN]: [left, right, options] }
+  in(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.IN]: [left, right, options || {}] }
       : { [this.ops.IN]: [left, right] };
   }
 
   /**
    * Value is not in array
    */
-  notIn(left, right, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.NOT_IN]: [left, right, options] }
+  notIn(left, right, options) {
+    return arguments.length > 2
+      ? { [this.ops.NOT_IN]: [left, right, options || {}] }
       : { [this.ops.NOT_IN]: [left, right] };
   }
 
@@ -165,9 +166,9 @@ export class RuleHelpers {
   /**
    * Value is between min and max (inclusive)
    */
-  between(value, range, options = {}) {
-    return Object.keys(options).length > 0
-      ? { [this.ops.BETWEEN]: [value, range, options] }
+  between(value, range, options) {
+    return arguments.length > 2
+      ? { [this.ops.BETWEEN]: [value, range, options || {}] }
       : { [this.ops.BETWEEN]: [value, range] };
   }
 
