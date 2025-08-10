@@ -12,7 +12,10 @@ export class BaseOperator {
   }
 
   /**
-   * Validate operator arguments
+   * Validate operator arguments with flexible length checking
+   * @param {Array} args - Operator arguments
+   * @param {number|Array} expectedLength - Expected number of arguments (or range [min, max])
+   * @param {string} operatorName - Name of the operator for error messages
    */
   validateArgs(args, expectedLength, operatorName) {
     if (!Array.isArray(args)) {
@@ -22,12 +25,27 @@ export class BaseOperator {
       });
     }
 
-    if (expectedLength && args.length !== expectedLength) {
-      throw new OperatorError(
-        `${operatorName} operator requires ${expectedLength} arguments, got ${args.length}`,
-        operatorName,
-        { args, expectedLength, actualLength: args.length }
-      );
+    if (expectedLength !== undefined) {
+      if (Array.isArray(expectedLength)) {
+        // Range validation [min, max]
+        const [min, max] = expectedLength;
+        if (args.length < min || args.length > max) {
+          throw new OperatorError(
+            `${operatorName} operator requires ${min}-${max} arguments, got ${args.length}`,
+            operatorName,
+            { args, expectedRange: expectedLength, actualLength: args.length }
+          );
+        }
+      } else {
+        // Exact length validation
+        if (args.length !== expectedLength) {
+          throw new OperatorError(
+            `${operatorName} operator requires ${expectedLength} arguments, got ${args.length}`,
+            operatorName,
+            { args, expectedLength, actualLength: args.length }
+          );
+        }
+      }
     }
   }
 
