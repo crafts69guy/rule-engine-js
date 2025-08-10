@@ -23,7 +23,8 @@ export class NumericOperators extends BaseOperator {
    */
   createNumericOperator(type) {
     return (args, context) => {
-      this.validateArgs(args, 2, type);
+      // Validate arguments - 2 or 3 arguments allowed
+      this.validateArgs(args, [2, 3], type);
 
       const [left, right, options = {}] = args;
       const strict = this.isStrictMode(options);

@@ -22,7 +22,8 @@ export class ComparisonOperators extends BaseOperator {
    */
   createEqualityOperator(shouldEqual) {
     return (args, context) => {
-      this.validateArgs(args, 2, shouldEqual ? 'EQ' : 'NEQ');
+      // Validate arguments - 2 or 3 arguments allowed
+      this.validateArgs(args, [2, 3], shouldEqual ? 'EQ' : 'NEQ');
 
       const [left, right, options = {}] = args;
       const strict = this.isStrictMode(options);
