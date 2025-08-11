@@ -2,7 +2,7 @@
   "name": "rule-engine-js",
   "version": "1.0.0",
   "description": "A high-performance, secure rule engine with dynamic field comparison support",
-  "main": "dist/index.cjs.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
   "browser": "dist/index.js",
   "types": "types/index.d.ts",
@@ -10,11 +10,10 @@
   "exports": {
     ".": {
       "import": "./dist/index.esm.js",
-      "require": "./dist/index.cjs.js",
+      "require": "./dist/index.cjs",
       "browser": "./dist/index.js",
       "types": "./types/index.d.ts"
-    },
-    "./package.json": "./package.json"
+    }
   },
   "files": [
     "dist/",
@@ -34,6 +33,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:builds": "node tests/build/test-builds.js",
+    "test:builds:all": "node scripts/test-all-builds.js",
+    "test:builds:cjs": "node tests/build/test-cjs.cjs",
+    "test:builds:quick": "npm run build && npm run test:builds",
     "lint": "eslint src/ --ext .js",
     "lint:fix": "eslint src/ --ext .js --fix",
     "lint:all": "eslint src/ tests/ --ext .js",

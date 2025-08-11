@@ -27,6 +27,8 @@ tsconfig.json
 test-*.js
 *.test.js
 *.spec.js
+test-*.cjs
+test-*.html
 
 # Keep these in npm package
 !dist/

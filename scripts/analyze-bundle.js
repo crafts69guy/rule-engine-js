@@ -8,7 +8,9 @@ const __dirname = dirname(__filename);
 const distDir = join(__dirname, '..', 'dist');
 
 function formatBytes(bytes) {
-  if (bytes === 0) {return '0 B';}
+  if (bytes === 0) {
+    return '0 B';
+  }
   const k = 1024;
   const sizes = ['B', 'KB', 'MB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -38,7 +40,7 @@ function analyzeFile(filename) {
 console.log('\n📊 Bundle Size Analysis\n');
 console.log('='.repeat(60));
 
-const files = ['index.js', 'index.min.js', 'index.esm.js', 'index.cjs.js'];
+const files = ['index.js', 'index.min.js', 'index.esm.js', 'index.cjs'];
 
 const results = files.map(analyzeFile).filter(Boolean);
 

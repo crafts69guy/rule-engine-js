@@ -95,7 +95,7 @@ export default [
   }),
 
   // CommonJS build - external dependencies
-  createConfig('cjs', 'dist/index.cjs.js', {
+  createConfig('cjs', 'dist/index.cjs', {
     external: createExternal('cjs'),
   }),
 ];
