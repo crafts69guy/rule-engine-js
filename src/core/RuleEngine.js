@@ -292,15 +292,77 @@ export class RuleEngine {
   _getContextId(context) {
     if (context && typeof context === 'object') {
       // Try explicit identifiers first
-      if (context._id) {return String(context._id);}
-      if (context.id) {return String(context.id);}
+      if (context._id) {
+        return String(context._id);
+      }
+      if (context.id) {
+        return String(context.id);
+      }
 
-      // Generate based on structure
+      // Generate based on structure AND values
       const keys = Object.keys(context).sort();
-      return `keys:${keys.join(',')}:count:${keys.length}`;
+      const structureId = `keys:${keys.join(',')}:count:${keys.length}`;
+
+      // Create a hash of the actual values for cache differentiation
+      const valuesHash = this._hashContextValues(context);
+
+      return `${structureId}:hash:${valuesHash}`;
     }
 
     return 'default';
+  }
+
+  /**
+   * Create a lightweight hash of context values for cache key differentiation
+   * Optimized for performance and readability
+   * @private
+   */
+  _hashContextValues(obj, depth = 0, visited = new WeakSet()) {
+    // Prevent infinite recursion on circular references
+    if (depth > 4) {
+      return 'deep';
+    }
+
+    // Handle primitives
+    if (obj === null || obj === undefined) {
+      return 'null';
+    }
+    if (typeof obj !== 'object') {
+      // Truncate very long strings to keep cache keys manageable
+      const str = String(obj);
+      return str.length > 50 ? str.substring(0, 47) + '...' : str;
+    }
+
+    // Prevent circular references
+    if (visited.has(obj)) {
+      return 'circular';
+    }
+    visited.add(obj);
+
+    try {
+      if (Array.isArray(obj)) {
+        // For arrays, hash first few elements to keep keys reasonable
+        const elements = obj
+          .slice(0, 5)
+          .map((item) => this._hashContextValues(item, depth + 1, visited));
+        const suffix = obj.length > 5 ? `+${obj.length - 5}more` : '';
+        return `[${elements.join(',')}${suffix}]`;
+      }
+
+      // For objects, create a hash based on sorted key-value pairs
+      const entries = Object.keys(obj)
+        .sort()
+        .slice(0, 10) // Limit to first 10 keys for performance
+        .map((key) => {
+          const value = this._hashContextValues(obj[key], depth + 1, visited);
+          return `${key}:${value}`;
+        });
+
+      const suffix = Object.keys(obj).length > 10 ? '+more' : '';
+      return `{${entries.join('|')}${suffix}}`;
+    } finally {
+      visited.delete(obj);
+    }
   }
 
   /**
