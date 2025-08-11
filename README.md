@@ -27,6 +27,54 @@ npm install rule-engine-js
 yarn add rule-engine-js
 ```
 
+## 📖 Usage
+
+### Basic Example
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+// Create engine and helpers
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+// Define your data
+const user = {
+  name: 'John Doe',
+  age: 28,
+  role: 'admin',
+  email: 'john@company.com'
+};
+
+// Create a rule
+const rule = rules.and(
+  rules.gte('age', 18),
+  rules.eq('role', 'admin'),
+  rules.validation.email('email')
+);
+
+// Evaluate the rule
+const result = engine.evaluateExpr(rule, user);
+console.log(result.success); // true
+```
+
+### Dynamic Field Comparison
+
+```javascript
+const data = {
+  form: { score: 85, maxScore: 100, minScore: 0 }
+};
+
+const rule = rules.and(
+  rules.field.greaterThan('form.score', 'form.minScore'),
+  rules.field.lessThan('form.score', 'form.maxScore')
+);
+
+const result = engine.evaluateExpr(rule, data);
+// Compares form.score (85) with form.minScore (0) and form.maxScore (100)
+```
+
+
 ## 🚀 Quick Start
 
 ```javascript
