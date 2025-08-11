@@ -1,25 +1,32 @@
-cat > .npmignore << 'EOF'
 # Source files
 src/
 tests/
+scripts/
 benchmarks/
 examples/
 docs/
-scripts/
+
+# Development files
+.github/
+.vscode/
+.idea/
+*.log
+coverage/
+.nyc_output/
 
 # Config files
-.eslintrc.js
-.prettierrc
+.eslintrc*
+.prettierrc*
 babel.config.js
 rollup.config.js
 jest.config.js
 tsconfig.json
-
-# Development files
-.github/
 .gitignore
-*.log
-coverage/
+
+# Test files
+test-*.js
+*.test.js
+*.spec.js
 
 # Keep these in npm package
 !dist/
@@ -27,4 +34,4 @@ coverage/
 !README.md
 !LICENSE
 !CHANGELOG.md
-EOF
+!package.json

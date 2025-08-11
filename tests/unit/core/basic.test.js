@@ -74,9 +74,9 @@ describe('Basic Engine Functionality', () => {
     it('should handle dynamic field comparison (your original use case)', () => {
       const rule = {
         and: [
-          { lt: ['form.score', 'form.maxScore'] },  // 85 < 100
-          { gte: ['form.score', 80] }               // 85 >= 80
-        ]
+          { lt: ['form.score', 'form.maxScore'] }, // 85 < 100
+          { gte: ['form.score', 80] }, // 85 >= 80
+        ],
       };
 
       expectRuleToPass(engine, rule);

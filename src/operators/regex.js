@@ -30,11 +30,10 @@ export class RegexOperator extends BaseOperator {
     return (args, context) => {
       // Validate arguments - can be 2 or 3 args
       if (!Array.isArray(args) || args.length < 2 || args.length > 3) {
-        throw new OperatorError(
-          'REGEX operator requires 2 or 3 arguments',
-          'REGEX',
-          { args, actualLength: args.length }
-        );
+        throw new OperatorError('REGEX operator requires 2 or 3 arguments', 'REGEX', {
+          args,
+          actualLength: args.length,
+        });
       }
 
       const [left, right, options = {}] = args;
@@ -52,11 +51,10 @@ export class RegexOperator extends BaseOperator {
       const pattern = TypeUtils.coerceToString(resolvedRight, false);
 
       if (text === null || pattern === null) {
-        throw new OperatorError(
-          'REGEX operator requires valid text and pattern',
-          'REGEX',
-          { text: resolvedLeft, pattern: resolvedRight }
-        );
+        throw new OperatorError('REGEX operator requires valid text and pattern', 'REGEX', {
+          text: resolvedLeft,
+          pattern: resolvedRight,
+        });
       }
 
       try {
@@ -112,7 +110,7 @@ export class RegexOperator extends BaseOperator {
   getCacheStats() {
     return {
       size: this.regexCache.size,
-      maxSize: this.maxCacheSize
+      maxSize: this.maxCacheSize,
     };
   }
 }

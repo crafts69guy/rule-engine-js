@@ -15,7 +15,7 @@ describe('String Operators', () => {
 
     it('should handle dynamic field contains', () => {
       const context = {
-        message: { text: 'Hello World', searchTerm: 'Hello' }
+        message: { text: 'Hello World', searchTerm: 'Hello' },
       };
       expectRuleToPass(engine, { contains: ['message.text', 'message.searchTerm'] }, context);
     });
@@ -34,7 +34,7 @@ describe('String Operators', () => {
 
     it('should handle dynamic field starts with', () => {
       const context = {
-        url: { full: 'https://example.com', protocol: 'https' }
+        url: { full: 'https://example.com', protocol: 'https' },
       };
       expectRuleToPass(engine, { startsWith: ['url.full', 'url.protocol'] }, context);
     });
@@ -48,7 +48,7 @@ describe('String Operators', () => {
 
     it('should handle dynamic field ends with', () => {
       const context = {
-        file: { name: 'document.pdf', extension: '.pdf' }
+        file: { name: 'document.pdf', extension: '.pdf' },
       };
       expectRuleToPass(engine, { endsWith: ['file.name', 'file.extension'] }, context);
     });
@@ -57,21 +57,24 @@ describe('String Operators', () => {
   describe('REGEX Operator', () => {
     it('should validate email format', () => {
       expectRuleToPass(engine, {
-        regex: ['user.email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$']
+        regex: ['user.email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'],
       });
     });
 
     it('should handle invalid regex gracefully', () => {
-      const result = engine.evaluateExpr({
-        regex: ['user.email', '[invalid(']
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          regex: ['user.email', '[invalid('],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('Invalid regex pattern');
     });
 
     it('should handle dynamic regex patterns', () => {
       const context = {
-        data: { text: 'Hello123', pattern: '\\d+' }
+        data: { text: 'Hello123', pattern: '\\d+' },
       };
       expectRuleToPass(engine, { regex: ['data.text', 'data.pattern'] }, context);
     });
@@ -79,16 +82,19 @@ describe('String Operators', () => {
     it('should support regex flags', () => {
       // Note: This test assumes flags support in options
       expectRuleToPass(engine, {
-        regex: ['user.profile.bio', 'software', { flags: 'i' }]
+        regex: ['user.profile.bio', 'software', { flags: 'i' }],
       });
     });
   });
 
   describe('Error Handling', () => {
     it('should handle non-string values in string operators', () => {
-      const result = engine.evaluateExpr({
-        contains: ['user.age', 'test']
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          contains: ['user.age', 'test'],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('requires string operands');
     });

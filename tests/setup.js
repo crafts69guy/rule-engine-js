@@ -12,13 +12,13 @@ global.testContext = {
     tags: ['admin', 'premium', 'beta'],
     profile: {
       bio: 'Software Engineer at Tech Corp',
-      skills: ['javascript', 'python', 'go']
-    }
+      skills: ['javascript', 'python', 'go'],
+    },
   },
   form: {
     score: 85,
-    maxScore: 100
-  }
+    maxScore: 100,
+  },
 };
 
 // Global test helper functions

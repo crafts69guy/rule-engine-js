@@ -21,14 +21,14 @@ describe('Real-World Integration Tests', () => {
           permissions: ['read', 'write', 'delete'],
           department: 'engineering',
           isActive: true,
-          lastLogin: '2023-12-01'
+          lastLogin: '2023-12-01',
         },
         resource: {
           type: 'document',
           owner: 123,
           department: 'engineering',
-          confidential: false
-        }
+          confidential: false,
+        },
       };
 
       const accessRule = h.and(
@@ -48,10 +48,7 @@ describe('Real-World Integration Tests', () => {
         ),
 
         // If document is confidential, must be admin
-        h.or(
-          h.isFalse('resource.confidential'),
-          h.eq('user.role', 'admin')
-        )
+        h.or(h.isFalse('resource.confidential'), h.eq('user.role', 'admin'))
       );
 
       expectRuleToPass(engine, accessRule, context);
@@ -60,13 +57,10 @@ describe('Real-World Integration Tests', () => {
     it('should deny access for inactive users', () => {
       const context = {
         user: { isActive: false, role: 'admin', id: 123 },
-        resource: { confidential: false }
+        resource: { confidential: false },
       };
 
-      const accessRule = h.and(
-        h.isTrue('user.isActive'),
-        h.eq('user.role', 'admin')
-      );
+      const accessRule = h.and(h.isTrue('user.isActive'), h.eq('user.role', 'admin'));
 
       expectRuleToFail(engine, accessRule, context);
     });
@@ -83,15 +77,15 @@ describe('Real-World Integration Tests', () => {
             total: 500,
             items: [
               { category: 'electronics', price: 300 },
-              { category: 'books', price: 200 }
-            ]
-          }
+              { category: 'books', price: 200 },
+            ],
+          },
         },
         promotion: {
           minOrderAmount: 100,
           validCategories: ['electronics', 'clothing'],
-          membershipRequired: ['premium', 'gold']
-        }
+          membershipRequired: ['premium', 'gold'],
+        },
       };
 
       const discountRule = h.and(
@@ -123,20 +117,20 @@ describe('Real-World Integration Tests', () => {
             firstName: 'John',
             lastName: 'Doe',
             email: 'john@example.com',
-            age: 28
+            age: 28,
           },
           preferences: {
             newsletter: true,
             marketing: false,
-            theme: 'dark'
+            theme: 'dark',
           },
           account: {
             username: 'johndoe',
             password: 'SecurePass123!',
             confirmPassword: 'SecurePass123!',
-            agreedToTerms: true
-          }
-        }
+            agreedToTerms: true,
+          },
+        },
       };
 
       const validationRule = h.and(
@@ -169,15 +163,15 @@ describe('Real-World Integration Tests', () => {
             firstName: 'John',
             lastName: 'Doe',
             email: 'john@example.com',
-            age: 28
+            age: 28,
           },
           account: {
             username: 'johndoe',
             password: 'weak',
             confirmPassword: 'weak',
-            agreedToTerms: true
-          }
-        }
+            agreedToTerms: true,
+          },
+        },
       };
 
       const passwordRule = h.regex(
@@ -197,13 +191,13 @@ describe('Real-World Integration Tests', () => {
           passingScore: 70,
           studentScore: 85,
           bonusPoints: 5,
-          penalties: 2
+          penalties: 2,
         },
         student: {
           attendance: 0.95,
           previousGrade: 'A',
-          extraCredit: 3
-        }
+          extraCredit: 3,
+        },
       };
 
       const passingRule = h.and(
@@ -238,19 +232,19 @@ describe('Real-World Integration Tests', () => {
           annualIncome: 75000,
           employmentYears: 3,
           existingDebt: 15000,
-          age: 32
+          age: 32,
         },
         loan: {
           amount: 250000,
           purpose: 'home',
-          termYears: 30
+          termYears: 30,
         },
         criteria: {
           minCreditScore: 650,
           maxDebtToIncomeRatio: 0.4,
           minEmploymentYears: 2,
-          maxLoanToIncomeRatio: 4
-        }
+          maxLoanToIncomeRatio: 4,
+        },
       };
 
       const approvalRule = h.and(
@@ -287,8 +281,8 @@ describe('Real-World Integration Tests', () => {
           merchant: {
             category: 'electronics',
             country: 'US',
-            riskScore: 0.2
-          }
+            riskScore: 0.2,
+          },
         },
         user: {
           accountType: 'premium',
@@ -296,14 +290,14 @@ describe('Real-World Integration Tests', () => {
           dailyLimit: 5000,
           monthlySpent: 12000,
           monthlyLimit: 20000,
-          verificationLevel: 'full'
+          verificationLevel: 'full',
         },
         security: {
           deviceTrusted: true,
           locationMatch: true,
           timeOfDay: 14, // 2 PM
-          fraudScore: 0.1
-        }
+          fraudScore: 0.1,
+        },
       };
 
       const transactionRule = h.and(
@@ -322,10 +316,7 @@ describe('Real-World Integration Tests', () => {
         // Risk-based rules
         h.or(
           // Low risk: simple approval
-          h.and(
-            h.eq('user.riskProfile', 'low'),
-            h.lt('transaction.amount', 1000)
-          ),
+          h.and(h.eq('user.riskProfile', 'low'), h.lt('transaction.amount', 1000)),
 
           // Medium risk: additional checks
           h.and(

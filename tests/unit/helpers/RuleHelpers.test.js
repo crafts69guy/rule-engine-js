@@ -42,26 +42,18 @@ describe('Rule Helpers', () => {
     });
 
     it('should create OR rules', () => {
-      const rule = h.or(
-        h.eq('user.role', 'admin'),
-        h.eq('user.role', 'moderator')
-      );
+      const rule = h.or(h.eq('user.role', 'admin'), h.eq('user.role', 'moderator'));
       expectRuleToPass(engine, rule);
     });
 
     it('should create NOT rules', () => {
-      const rule = h.not(
-        h.eq('user.name', 'Jane Doe')
-      );
+      const rule = h.not(h.eq('user.name', 'Jane Doe'));
       expectRuleToPass(engine, rule);
     });
 
     it('should handle nested logical operations', () => {
       const rule = h.and(
-        h.or(
-          h.eq('user.role', 'admin'),
-          h.eq('user.role', 'moderator')
-        ),
+        h.or(h.eq('user.role', 'admin'), h.eq('user.role', 'moderator')),
         h.gte('user.age', 18)
       );
       expectRuleToPass(engine, rule);
@@ -144,8 +136,8 @@ describe('Rule Helpers', () => {
       const context = { form: { a: 15, b: 8 } };
 
       const rule = h.and(
-        h.field.greaterThanOrEqual('form.a', 'form.b'),  // 15 >= 8
-        h.lt('form.b', 10)                               // 8 < 10
+        h.field.greaterThanOrEqual('form.a', 'form.b'), // 15 >= 8
+        h.lt('form.b', 10) // 8 < 10
       );
 
       expectRuleToPass(engine, rule, context);
@@ -176,17 +168,11 @@ describe('Rule Helpers', () => {
   describe('API Consistency', () => {
     it('should produce same results as raw syntax', () => {
       // Helper syntax
-      const helperRule = h.and(
-        h.eq('user.name', 'John Doe'),
-        h.gte('user.age', 18)
-      );
+      const helperRule = h.and(h.eq('user.name', 'John Doe'), h.gte('user.age', 18));
 
       // Raw syntax
       const rawRule = {
-        and: [
-          { eq: ['user.name', 'John Doe'] },
-          { gte: ['user.age', 18] }
-        ]
+        and: [{ eq: ['user.name', 'John Doe'] }, { gte: ['user.age', 18] }],
       };
 
       const helperResult = engine.evaluateExpr(helperRule, global.testContext);
@@ -204,10 +190,7 @@ describe('Rule Helpers', () => {
         h.validation.email('user.email'),
         h.or(
           h.eq('user.role', 'admin'),
-          h.and(
-            h.eq('user.role', 'user'),
-            h.validation.minAge('user.age', 18)
-          )
+          h.and(h.eq('user.role', 'user'), h.validation.minAge('user.age', 18))
         ),
         h.in('admin', 'user.tags')
       );
@@ -221,8 +204,8 @@ describe('Rule Helpers', () => {
           password: 'secret123',
           confirmPassword: 'secret123',
           age: 25,
-          agreedToTerms: true
-        }
+          agreedToTerms: true,
+        },
       };
 
       const rule = h.and(

@@ -68,17 +68,13 @@ export class StringOperators extends BaseOperator {
     const rightStr = TypeUtils.coerceToString(right, strict);
 
     if (leftStr === null || rightStr === null) {
-      throw new OperatorError(
-        `${operatorName} operator requires string operands`,
-        operatorName,
-        {
-          left,
-          right,
-          leftType: typeof left,
-          rightType: typeof right,
-          strict
-        }
-      );
+      throw new OperatorError(`${operatorName} operator requires string operands`, operatorName, {
+        left,
+        right,
+        leftType: typeof left,
+        rightType: typeof right,
+        strict,
+      });
     }
 
     return { left: leftStr, right: rightStr };

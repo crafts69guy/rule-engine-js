@@ -11,10 +11,10 @@ describe('Logical Operators', () => {
     it('should require all conditions to be true', () => {
       const rule = {
         and: [
-          { eq: ['user.name', 'John Doe'] },    // true
-          { gte: ['user.age', 18] },            // true
-          { eq: ['user.role', 'admin'] }        // true
-        ]
+          { eq: ['user.name', 'John Doe'] }, // true
+          { gte: ['user.age', 18] }, // true
+          { eq: ['user.role', 'admin'] }, // true
+        ],
       };
       expectRuleToPass(engine, rule);
     });
@@ -22,10 +22,10 @@ describe('Logical Operators', () => {
     it('should fail if any condition is false', () => {
       const rule = {
         and: [
-          { eq: ['user.name', 'John Doe'] },    // true
-          { gte: ['user.age', 18] },            // true
-          { eq: ['user.role', 'guest'] }        // false
-        ]
+          { eq: ['user.name', 'John Doe'] }, // true
+          { gte: ['user.age', 18] }, // true
+          { eq: ['user.role', 'guest'] }, // false
+        ],
       };
       expectRuleToFail(engine, rule);
     });
@@ -35,12 +35,9 @@ describe('Logical Operators', () => {
         and: [
           { eq: ['user.name', 'John Doe'] },
           {
-            and: [
-              { gte: ['user.age', 18] },
-              { eq: ['user.role', 'admin'] }
-            ]
-          }
-        ]
+            and: [{ gte: ['user.age', 18] }, { eq: ['user.role', 'admin'] }],
+          },
+        ],
       };
       expectRuleToPass(engine, rule);
     });
@@ -56,10 +53,10 @@ describe('Logical Operators', () => {
     it('should pass if any condition is true', () => {
       const rule = {
         or: [
-          { eq: ['user.name', 'Jane Doe'] },    // false
-          { gte: ['user.age', 18] },            // true
-          { eq: ['user.role', 'guest'] }        // false
-        ]
+          { eq: ['user.name', 'Jane Doe'] }, // false
+          { gte: ['user.age', 18] }, // true
+          { eq: ['user.role', 'guest'] }, // false
+        ],
       };
       expectRuleToPass(engine, rule);
     });
@@ -67,10 +64,10 @@ describe('Logical Operators', () => {
     it('should fail if all conditions are false', () => {
       const rule = {
         or: [
-          { eq: ['user.name', 'Jane Doe'] },    // false
-          { lt: ['user.age', 18] },             // false
-          { eq: ['user.role', 'guest'] }        // false
-        ]
+          { eq: ['user.name', 'Jane Doe'] }, // false
+          { lt: ['user.age', 18] }, // false
+          { eq: ['user.role', 'guest'] }, // false
+        ],
       };
       expectRuleToFail(engine, rule);
     });
@@ -78,14 +75,14 @@ describe('Logical Operators', () => {
     it('should handle nested OR conditions', () => {
       const rule = {
         or: [
-          { eq: ['user.name', 'Jane Doe'] },    // false
+          { eq: ['user.name', 'Jane Doe'] }, // false
           {
             or: [
-              { gte: ['user.age', 18] },        // true
-              { eq: ['user.role', 'guest'] }    // false
-            ]
-          }
-        ]
+              { gte: ['user.age', 18] }, // true
+              { eq: ['user.role', 'guest'] }, // false
+            ],
+          },
+        ],
       };
       expectRuleToPass(engine, rule);
     });
@@ -95,8 +92,8 @@ describe('Logical Operators', () => {
     it('should negate true condition', () => {
       const rule = {
         not: [
-          { eq: ['user.name', 'Jane Doe'] }     // false, so NOT false = true
-        ]
+          { eq: ['user.name', 'Jane Doe'] }, // false, so NOT false = true
+        ],
       };
       expectRuleToPass(engine, rule);
     });
@@ -104,8 +101,8 @@ describe('Logical Operators', () => {
     it('should negate false condition', () => {
       const rule = {
         not: [
-          { eq: ['user.name', 'John Doe'] }     // true, so NOT true = false
-        ]
+          { eq: ['user.name', 'John Doe'] }, // true, so NOT true = false
+        ],
       };
       expectRuleToFail(engine, rule);
     });
@@ -121,11 +118,11 @@ describe('Logical Operators', () => {
         not: [
           {
             and: [
-              { eq: ['user.name', 'Jane Doe'] },  // false
-              { eq: ['user.role', 'admin'] }      // true
-            ]
-          }
-        ]
+              { eq: ['user.name', 'Jane Doe'] }, // false
+              { eq: ['user.role', 'admin'] }, // true
+            ],
+          },
+        ],
       };
       // NOT (false AND true) = NOT false = true
       expectRuleToPass(engine, rule);
@@ -138,16 +135,16 @@ describe('Logical Operators', () => {
         and: [
           {
             or: [
-              { eq: ['user.role', 'admin'] },     // true
-              { eq: ['user.role', 'moderator'] }  // false
-            ]
+              { eq: ['user.role', 'admin'] }, // true
+              { eq: ['user.role', 'moderator'] }, // false
+            ],
           },
           {
             not: [
-              { lt: ['user.age', 18] }            // false, so NOT false = true
-            ]
-          }
-        ]
+              { lt: ['user.age', 18] }, // false, so NOT false = true
+            ],
+          },
+        ],
       };
       // (true OR false) AND (NOT false) = true AND true = true
       expectRuleToPass(engine, rule);

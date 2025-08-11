@@ -16,7 +16,7 @@ describe('Special Operators', () => {
 
     it('should check if value is between dynamic range', () => {
       const context = {
-        product: { price: 99.99, priceRange: [50, 150] }
+        product: { price: 99.99, priceRange: [50, 150] },
       };
       expectRuleToPass(engine, { between: ['product.price', 'product.priceRange'] }, context);
     });
@@ -24,14 +24,14 @@ describe('Special Operators', () => {
     it('should handle dynamic range with dynamic values', () => {
       const context = {
         exam: { score: 85, minPass: 70, maxScore: 100 },
-        range: [70, 100] // Alternative range
+        range: [70, 100], // Alternative range
       };
       expectRuleToPass(engine, { between: ['exam.score', 'range'] }, context);
     });
 
     it('should handle decimal values', () => {
       const context = {
-        product: { rating: 4.5 }
+        product: { rating: 4.5 },
       };
       expectRuleToPass(engine, { between: ['product.rating', [4.0, 5.0]] }, context);
     });
@@ -105,25 +105,34 @@ describe('Special Operators', () => {
 
   describe('Error Handling', () => {
     it('should handle invalid range format in BETWEEN', () => {
-      const result = engine.evaluateExpr({
-        between: ['user.age', [18]]
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          between: ['user.age', [18]],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('requires array of 2 values');
     });
 
     it('should handle non-numeric values in BETWEEN', () => {
-      const result = engine.evaluateExpr({
-        between: ['user.name', ['a', 'z']]
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          between: ['user.name', ['a', 'z']],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('requires numeric operands');
     });
 
     it('should handle non-array range in BETWEEN', () => {
-      const result = engine.evaluateExpr({
-        between: ['user.age', 'not_an_array']
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          between: ['user.age', 'not_an_array'],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('requires array of 2 values');
     });
@@ -134,9 +143,12 @@ describe('Special Operators', () => {
       const strictEngine = createRuleEngine({ strict: true });
       const context = { value: '25' }; // String
 
-      const result = strictEngine.evaluateExpr({
-        between: ['value', [20, 30]]
-      }, context);
+      const result = strictEngine.evaluateExpr(
+        {
+          between: ['value', [20, 30]],
+        },
+        context
+      );
       expect(result.success).toBe(false);
     });
 

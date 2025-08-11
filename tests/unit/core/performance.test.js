@@ -189,8 +189,8 @@ describe('Performance and Caching', () => {
         and: [
           { eq: ['user.name', 'John Doe'] },
           { gte: ['user.age', 18] },
-          { contains: ['user.email', '@company.com'] }
-        ]
+          { contains: ['user.email', '@company.com'] },
+        ],
       };
 
       const startTime = performance.now();
@@ -219,23 +219,15 @@ describe('Performance and Caching', () => {
       const complexRule = {
         and: [
           {
-            or: [
-              { eq: ['user.role', 'admin'] },
-              { eq: ['user.role', 'moderator'] }
-            ]
+            or: [{ eq: ['user.role', 'admin'] }, { eq: ['user.role', 'moderator'] }],
           },
           {
-            and: [
-              { gte: ['user.age', 18] },
-              { contains: ['user.email', '@company.com'] }
-            ]
+            and: [{ gte: ['user.age', 18] }, { contains: ['user.email', '@company.com'] }],
           },
           {
-            not: [
-              { in: ['user.role', ['banned', 'suspended']] }
-            ]
-          }
-        ]
+            not: [{ in: ['user.role', ['banned', 'suspended']] }],
+          },
+        ],
       };
 
       const startTime = performance.now();

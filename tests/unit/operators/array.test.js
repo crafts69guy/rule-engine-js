@@ -22,7 +22,7 @@ describe('Array Operators', () => {
     it('should handle mixed dynamic arrays', () => {
       const context = {
         user: { role: 'admin' },
-        config: { allowedRoles: ['admin', 'moderator', 'user'] }
+        config: { allowedRoles: ['admin', 'moderator', 'user'] },
       };
       expectRuleToPass(engine, { in: ['user.role', 'config.allowedRoles'] }, context);
     });
@@ -30,7 +30,7 @@ describe('Array Operators', () => {
     it('should handle number arrays', () => {
       const context = {
         scores: [85, 90, 78, 92],
-        targetScore: 90
+        targetScore: 90,
       };
       expectRuleToPass(engine, { in: ['targetScore', 'scores'] }, context);
     });
@@ -55,7 +55,7 @@ describe('Array Operators', () => {
     it('should handle mixed dynamic arrays', () => {
       const context = {
         user: { role: 'admin' },
-        config: { bannedRoles: ['guest', 'suspended'] }
+        config: { bannedRoles: ['guest', 'suspended'] },
       };
       expectRuleToPass(engine, { notIn: ['user.role', 'config.bannedRoles'] }, context);
     });
@@ -63,17 +63,23 @@ describe('Array Operators', () => {
 
   describe('Error Handling', () => {
     it('should handle non-array right operand', () => {
-      const result = engine.evaluateExpr({
-        in: ['user.role', 'user.name']
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          in: ['user.role', 'user.name'],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('requires array as right operand');
     });
 
     it('should handle literal non-array', () => {
-      const result = engine.evaluateExpr({
-        in: ['user.role', 'not_an_array']
-      }, global.testContext);
+      const result = engine.evaluateExpr(
+        {
+          in: ['user.role', 'not_an_array'],
+        },
+        global.testContext
+      );
       expect(result.success).toBe(false);
       expect(result.error).toContain('requires array as right operand');
     });
