@@ -44,7 +44,6 @@ export class RuleEngine {
       // Check expression cache for performance
       const cacheResult = this._checkExpressionCache(expr, context);
       if (cacheResult) {
-        this.metrics.cacheHits++;
         this._updateMetrics(startTime, true);
         return cacheResult;
       }
