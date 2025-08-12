@@ -1,0 +1,158 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Type of version bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      custom_version:
+        description: 'Custom version (optional, overrides version_type)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (test without publishing)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: production
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            # Use custom version
+            VERSION="${{ github.event.inputs.custom_version }}"
+            if [[ ! $VERSION =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-.*)?$ ]]; then
+              echo "❌ Invalid version format: $VERSION"
+              exit 1
+            fi
+            # Remove 'v' prefix if present for npm version
+            NPM_VERSION=${VERSION#v}
+            TAG="v$NPM_VERSION"
+          else
+            # Use version bump type
+            TYPE="${{ github.event.inputs.version_type }}"
+            NPM_VERSION=$(npm version $TYPE --no-git-tag-version)
+            TAG="v$NPM_VERSION"
+          fi
+
+          echo "version=$NPM_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "📋 Preparing release: $TAG"
+
+      - name: Run pre-release checks
+        run: |
+          echo "🧪 Running pre-release checks..."
+          npm run lint
+          npm run format:check
+          npm run test:coverage
+          npm run build
+          npm run test:all-envs
+          npm run quality:check
+
+      - name: Update CHANGELOG
+        run: |
+          echo "📝 Updating CHANGELOG.md..."
+          DATE=$(date +'%Y-%m-%d')
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Create backup
+          cp CHANGELOG.md CHANGELOG.md.bak
+
+          # Update CHANGELOG.md with new version
+          sed -i "s/## \\[Unreleased\\]/## [Unreleased]\\n\\n## [$VERSION] - $DATE/" CHANGELOG.md
+
+          echo "✅ CHANGELOG.md updated"
+
+      - name: Commit version changes
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore: release ${{ steps.version.outputs.tag }}"
+          git tag ${{ steps.version.outputs.tag }}
+
+          echo "✅ Version committed and tagged"
+
+      - name: Dry run summary
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🔍 DRY RUN SUMMARY"
+          echo "=================="
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Tag: ${{ steps.version.outputs.tag }}"
+          echo "All checks: ✅ PASSED"
+          echo ""
+          echo "🚀 Ready for release!"
+          echo "Set 'dry_run' to false to proceed with actual release."
+
+  release:
+    name: Execute Release
+    needs: prepare-release
+    if: github.event.inputs.dry_run != 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.prepare-release.outputs.tag }}
+    secrets: inherit
+
+  notify:
+    name: Notify Release Status
+    runs-on: ubuntu-latest
+    needs: [prepare-release, release]
+    if: always()
+
+    steps:
+      - name: Release Success
+        if: needs.release.result == 'success'
+        run: |
+          echo "🎉 Release ${{ needs.prepare-release.outputs.tag }} completed successfully!"
+          echo "📦 Check npm: https://www.npmjs.com/package/rule-engine-js"
+          echo "🐙 Check GitHub: https://github.com/${{ github.repository }}/releases"
+
+      - name: Release Failed
+        if: needs.release.result == 'failure'
+        run: |
+          echo "❌ Release ${{ needs.prepare-release.outputs.tag }} failed!"
+          echo "📋 Check the workflow logs for details"
+          exit 1
+
+      - name: Dry Run Complete
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "✅ Dry run completed successfully!"
+          echo "🔍 Version ${{ needs.prepare-release.outputs.tag }} is ready for release"
+          echo "🚀 Run this workflow again with dry_run=false to publish"

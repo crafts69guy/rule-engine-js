@@ -1,0 +1,181 @@
+name: CI
+
+on:
+  push:
+    branches: [production, develop]
+  pull_request:
+    branches: [production]
+
+jobs:
+  test:
+    name: Test on Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run tests
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  build:
+    name: Build and Test Distributions
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all formats
+        run: npm run build
+
+      - name: Analyze bundle size
+        run: npm run build:analyze
+
+      - name: Test package contents
+        run: |
+          npm pack
+          tar -tf *.tgz
+
+      - name: Test import methods
+        run: npm run test:all-envs
+
+      - name: Store build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-files
+          path: |
+            dist/
+            types/
+          retention-days: 30
+
+  browser-test:
+    name: Browser Compatibility Test
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for browser
+        run: npm run build
+
+      - name: Create browser test
+        run: |
+          mkdir -p browser-test
+          cat > browser-test/test.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><title>Browser Test</title></head>
+          <body>
+            <div id="result">Testing...</div>
+            <script src="../dist/index.js"></script>
+            <script>
+              try {
+                const engine = RuleEngineJS.createRuleEngine();
+                const rules = RuleEngineJS.createRuleHelpers();
+                const rule = rules.eq('test', 'test');
+                const result = engine.evaluateExpr(rule, {});
+                document.getElementById('result').innerHTML = 
+                  result.success ? '✅ Browser test passed' : '❌ Browser test failed';
+                console.log('Browser test result:', result.success);
+              } catch (e) {
+                console.error('Browser test error:', e);
+                document.getElementById('result').innerHTML = '❌ Browser test error: ' + e.message;
+              }
+            </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Install browser testing tools
+        run: |
+          npm install -g http-server
+          npm install --save-dev puppeteer
+
+      - name: Run browser test
+        run: |
+          # Start HTTP server in background
+          http-server . -p 8080 &
+          SERVER_PID=$!
+          sleep 2
+
+          # Create simple browser test script
+          cat > browser-test.js << 'EOF'
+          const puppeteer = require('puppeteer');
+
+          async function runTest() {
+            const browser = await puppeteer.launch({ headless: true });
+            const page = await browser.newPage();
+            
+            await page.goto('http://localhost:8080/browser-test/test.html');
+            await page.waitForTimeout(2000);
+            
+            const result = await page.$eval('#result', el => el.textContent);
+            console.log('Browser test result:', result);
+            
+            await browser.close();
+            
+            if (result.includes('✅')) {
+              console.log('✅ Browser test passed');
+              process.exit(0);
+            } else {
+              console.log('❌ Browser test failed');
+              process.exit(1);
+            }
+          }
+
+          runTest().catch(console.error);
+          EOF
+
+          node browser-test.js
+
+          # Kill server
+          kill $SERVER_PID

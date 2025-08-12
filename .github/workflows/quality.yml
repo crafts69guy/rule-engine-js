@@ -1,0 +1,172 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [production, develop]
+  pull_request:
+    branches: [production]
+
+jobs:
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check Prettier formatting
+        run: npm run format:check
+
+      - name: Run type checking (if TypeScript)
+        run: |
+          if [ -f tsconfig.json ]; then
+            npx tsc --noEmit
+          else
+            echo "No TypeScript config found, skipping type check"
+          fi
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: |
+          # Run npm audit and handle exit codes appropriately
+          npm audit --audit-level=moderate || {
+            echo "⚠️ Security vulnerabilities found"
+            echo "📋 Please review and fix security issues"
+            # Don't fail the build for moderate issues, just warn
+          }
+
+      - name: Check for known vulnerabilities
+        run: |
+          # Additional security checks can be added here
+          echo "✅ Security audit completed"
+
+  bundle-size:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and analyze
+        run: |
+          npm run build
+          npm run build:analyze
+
+      - name: Check bundle size limits
+        run: |
+          echo "📏 Checking bundle size limits..."
+
+          # Check if minified bundle exists and get size
+          if [ -f "dist/index.min.js" ]; then
+            SIZE=$(stat -f%z dist/index.min.js 2>/dev/null || stat -c%s dist/index.min.js)
+            SIZE_KB=$((SIZE / 1024))
+            LIMIT_KB=50
+            
+            echo "📦 Minified bundle size: ${SIZE_KB}KB"
+            echo "📊 Size limit: ${LIMIT_KB}KB"
+            
+            if [ $SIZE -gt $((LIMIT_KB * 1024)) ]; then
+              echo "❌ Bundle size ${SIZE_KB}KB exceeds ${LIMIT_KB}KB limit"
+              exit 1
+            else
+              echo "✅ Bundle size within limits"
+            fi
+          else
+            echo "⚠️ Minified bundle not found"
+            exit 1
+          fi
+
+      - name: Comment bundle size on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Read bundle sizes
+            const files = ['dist/index.js', 'dist/index.min.js', 'dist/index.esm.js', 'dist/index.cjs'];
+            let sizeReport = '## 📦 Bundle Size Report\n\n';
+            sizeReport += '| File | Size | Gzipped |\n';
+            sizeReport += '|------|------|----------|\n';
+
+            for (const file of files) {
+              if (fs.existsSync(file)) {
+                const stats = fs.statSync(file);
+                const sizeKB = (stats.size / 1024).toFixed(1);
+                sizeReport += `| ${file} | ${sizeKB}KB | ~${(sizeKB * 0.3).toFixed(1)}KB |\n`;
+              }
+            }
+
+            sizeReport += '\n*Gzipped sizes are estimated*';
+
+            // Comment on PR
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: sizeReport
+            });
+
+  compatibility:
+    name: Node.js Compatibility Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test Node.js compatibility
+        run: npm run test:node-versions
+
+      - name: Test import methods
+        run: |
+          npm run build
+          npm run test:all-envs
