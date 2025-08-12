@@ -30,8 +30,11 @@ const createConfig = (format, filename, { minify = false, external = [] } = {}) 
     nodeResolve({
       preferBuiltins: false,
       browser: format === 'umd',
+      modulesOnly: format !== 'umd',
     }),
-    commonjs(),
+    commonjs({
+      include: 'node_modules/**',
+    }),
     babel({
       babelHelpers: 'bundled',
       exclude: 'node_modules/**',
@@ -47,7 +50,9 @@ const createConfig = (format, filename, { minify = false, external = [] } = {}) 
                 : {
                     node: '16',
                   },
-            modules: false,
+            modules: false, // Keep ES modules for Rollup
+            bugfixes: true,
+            useBuiltIns: false,
           },
         ],
       ],
@@ -60,6 +65,8 @@ const createConfig = (format, filename, { minify = false, external = [] } = {}) 
               drop_debugger: true,
               pure_funcs: ['console.log', 'console.warn'],
               passes: 2,
+              dead_code: true,
+              unused: true,
             },
             mangle: {
               properties: {
@@ -78,7 +85,27 @@ const createConfig = (format, filename, { minify = false, external = [] } = {}) 
     format,
     name: format === 'umd' ? 'RuleEngineJS' : undefined,
     sourcemap: true,
-    exports: format === 'cjs' ? 'named' : 'auto',
+    ...(format === 'cjs'
+      ? {
+          exports: 'named',
+          interop: 'compat',
+          esModule: false,
+        }
+      : format === 'umd'
+        ? {
+            exports: 'named',
+          }
+        : {
+            exports: 'auto',
+          }),
+    // Add banner with version info
+    banner: `/**
+ * Rule Engine JS v${pkg.version}
+ * ${pkg.description}
+ * 
+ * @license ${pkg.license}
+ * @author ${pkg.author}
+ */`,
   },
 });
 
@@ -86,10 +113,10 @@ export default [
   // UMD build (browser) - includes all dependencies
   createConfig('umd', 'dist/index.js'),
 
-  // UMD minified - includes all dependencies
+  // UMD minified - includes all dependencies, optimized for production
   createConfig('umd', 'dist/index.min.js', { minify: true }),
 
-  // ESM build - external dependencies
+  // ESM build - external dependencies, optimized for tree shaking
   createConfig('es', 'dist/index.esm.js', {
     external: createExternal('esm'),
   }),

@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { gzipSync } from 'zlib';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -6,6 +6,9 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const distDir = join(__dirname, '..', 'dist');
+
+// Ensure scripts directory exists
+mkdirSync(dirname(__filename), { recursive: true });
 
 function formatBytes(bytes) {
   if (bytes === 0) {
@@ -44,6 +47,11 @@ const files = ['index.js', 'index.min.js', 'index.esm.js', 'index.cjs'];
 
 const results = files.map(analyzeFile).filter(Boolean);
 
+if (results.length === 0) {
+  console.log('❌ No build files found. Run "npm run build" first.');
+  process.exit(1);
+}
+
 results.forEach((result) => {
   console.log(
     `📦 ${result.filename.padEnd(15)} ${result.sizeFormatted.padStart(8)} (${result.gzipFormatted} gzipped)`
@@ -69,3 +77,10 @@ if (minified) {
     console.log('✅ Bundle size looks good!');
   }
 }
+
+// Performance recommendations
+console.log('\n💡 Optimization Tips:');
+console.log('• Use tree shaking in your bundler');
+console.log('• Import only what you need: import { createRuleEngine } from "rule-engine-js"');
+console.log('• Consider using the ESM build for better tree shaking');
+console.log('• Enable gzip compression on your server');
