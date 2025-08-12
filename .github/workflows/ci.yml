@@ -36,6 +36,9 @@ jobs:
         if: matrix.node-version >= 18
         run: npm run format:check
 
+      - name: Build project
+        run: npm run build
+
       - name: Run tests
         run: npm run test:coverage
 
