@@ -28,16 +28,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linting
+      - name: Run linting (Node.js 18+ only)
+        if: matrix.node-version >= 18
         run: npm run lint
 
-      - name: Check formatting
+      - name: Check formatting (Node.js 18+ only)
+        if: matrix.node-version >= 18
         run: npm run format:check
 
       - name: Run tests
         run: npm run test:coverage
 
       - name: Upload coverage to Codecov
+        if: matrix.node-version == 18
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage/lcov.info
@@ -137,38 +140,65 @@ jobs:
 
       - name: Install browser testing tools
         run: |
-          npm install -g http-server
           npm install --save-dev puppeteer
 
-      - name: Run browser test
+      - name: Run browser test with Puppeteer
         run: |
-          # Start HTTP server in background
-          http-server . -p 8080 &
-          SERVER_PID=$!
-          sleep 2
-
-          # Create simple browser test script
           cat > browser-test.js << 'EOF'
           const puppeteer = require('puppeteer');
+          const http = require('http');
+          const fs = require('fs');
+          const path = require('path');
+
+          // Simple HTTP server
+          const server = http.createServer((req, res) => {
+            let filePath = '.' + req.url;
+            if (filePath === './') filePath = './browser-test/test.html';
+            
+            const extname = path.extname(filePath);
+            let contentType = 'text/html';
+            
+            if (extname === '.js') contentType = 'text/javascript';
+            
+            fs.readFile(filePath, (err, content) => {
+              if (err) {
+                res.writeHead(404);
+                res.end('File not found');
+              } else {
+                res.writeHead(200, { 'Content-Type': contentType });
+                res.end(content, 'utf-8');
+              }
+            });
+          });
 
           async function runTest() {
-            const browser = await puppeteer.launch({ headless: true });
+            const browser = await puppeteer.launch({ 
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            
             const page = await browser.newPage();
             
-            await page.goto('http://localhost:8080/browser-test/test.html');
-            await page.waitForTimeout(2000);
+            // Start server
+            server.listen(8080);
             
-            const result = await page.$eval('#result', el => el.textContent);
-            console.log('Browser test result:', result);
-            
-            await browser.close();
-            
-            if (result.includes('✅')) {
-              console.log('✅ Browser test passed');
-              process.exit(0);
-            } else {
-              console.log('❌ Browser test failed');
-              process.exit(1);
+            try {
+              await page.goto('http://localhost:8080');
+              await page.waitForTimeout(2000);
+              
+              const result = await page.$eval('#result', el => el.textContent);
+              console.log('Browser test result:', result);
+              
+              if (result.includes('✅')) {
+                console.log('✅ Browser test passed');
+                process.exit(0);
+              } else {
+                console.log('❌ Browser test failed');
+                process.exit(1);
+              }
+            } finally {
+              await browser.close();
+              server.close();
             }
           }
 
@@ -176,6 +206,3 @@ jobs:
           EOF
 
           node browser-test.js
-
-          # Kill server
-          kill $SERVER_PID
