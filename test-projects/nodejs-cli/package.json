@@ -1,0 +1,12 @@
+{
+  "name": "rule-engine-test-cli",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "rule-engine-js": "file:../../rule-engine-js-1.0.0.tgz"
+  }
+}
