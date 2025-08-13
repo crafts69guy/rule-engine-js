@@ -1,4 +1,4 @@
-const { createRuleEngine, createRuleHelpers } = require('../../../dist/index.cjs');
+const { createRuleEngine, createRuleHelpers } = require('../../../src/index.js');
 
 describe('Rule Helpers', () => {
   let engine;

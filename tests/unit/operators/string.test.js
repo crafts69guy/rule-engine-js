@@ -1,4 +1,4 @@
-const { createRuleEngine } = require('../../../dist/index.cjs');
+const { createRuleEngine } = require('../../../src/index.js');
 
 describe('String Operators', () => {
   let engine;
