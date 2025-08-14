@@ -47,8 +47,9 @@ export class RegexOperator extends BaseOperator {
       );
 
       // Coerce to strings
-      const text = TypeUtils.coerceToString(resolvedLeft, false);
-      const pattern = TypeUtils.coerceToString(resolvedRight, false);
+      const strict = this.isStrictMode(options);
+      const text = TypeUtils.coerceToString(resolvedLeft, strict);
+      const pattern = TypeUtils.coerceToString(resolvedRight, strict);
 
       if (text === null || pattern === null) {
         throw new OperatorError('REGEX operator requires valid text and pattern', 'REGEX', {
