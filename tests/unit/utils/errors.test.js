@@ -471,7 +471,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
         const error2 = new RuleEngineError('Second error');
         expect(error1.timestamp).not.toBe(error2.timestamp);
         done();
-      }, 1);
+      }, 10);
     });
   });
 
