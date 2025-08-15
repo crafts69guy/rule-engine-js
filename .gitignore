@@ -42,6 +42,8 @@ pids/
 
 # Optional npm cache directory
 .npm
+.npmrc
+npm-debug.log*
 
 # Optional eslint cache
 .eslintcache
