@@ -66,10 +66,7 @@ try {
 
   // 4. Create pre-commit hook
   info('Creating pre-commit hook...');
-  const preCommitContent = `#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Run the comprehensive pre-commit script
+  const preCommitContent = `# Run the comprehensive pre-commit script
 npm run pre-commit
 `;
 
@@ -80,10 +77,7 @@ npm run pre-commit
 
   // 5. Create commit-msg hook
   info('Creating commit-msg hook...');
-  const commitMsgContent = `#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Validate commit message format
+  const commitMsgContent = `# Validate commit message format
 node scripts/validate-commit-msg.js $1
 `;
 
@@ -94,10 +88,7 @@ node scripts/validate-commit-msg.js $1
 
   // 6. Create pre-push hook
   info('Creating pre-push hook...');
-  const prePushContent = `#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Run comprehensive pre-push checks
+  const prePushContent = `# Run comprehensive pre-push checks
 npm run pre-push
 `;
 
