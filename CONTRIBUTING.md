@@ -1267,7 +1267,7 @@ git rebase upstream/main  # Sync with latest
 
 ### Maintainers
 
-- **Lead Maintainer:** [Name](mailto:crafts69guy@gmail.com)
+- **Lead Maintainer:** [Crafts 69 Guy](mailto:crafts69guy@gmail.com)
 - **Security Contact:** [crafts69guy@gmail.com](mailto:crafts69guy@gmail.com)
 - **Performance Contact:** [crafts69guy@gmail.com](mailto:crafts69guy@gmail.com)
 
