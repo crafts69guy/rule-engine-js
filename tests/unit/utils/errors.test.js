@@ -89,7 +89,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
           message: 'Serialization test',
           operator: 'gte',
           context: context,
-          timestamp: error.timestamp
+          timestamp: error.timestamp,
         });
       });
 
@@ -103,7 +103,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
           message: 'Null test',
           operator: null,
           context: {},
-          timestamp: error.timestamp
+          timestamp: error.timestamp,
         });
       });
 
@@ -197,7 +197,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
         const context = {
           field: 'email',
           value: 'invalid-email',
-          pattern: '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}'
+          pattern: '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}',
         };
         const error = new ValidationError('Invalid email format', context);
 
@@ -245,10 +245,13 @@ describe('Error Classes - Comprehensive Coverage', () => {
           form: 'registration',
           field: 'password',
           requirements: ['minLength: 8', 'uppercase', 'lowercase', 'number', 'special'],
-          provided: 'weak'
+          provided: 'weak',
         };
 
-        const error = new ValidationError('Password does not meet complexity requirements', context);
+        const error = new ValidationError(
+          'Password does not meet complexity requirements',
+          context
+        );
 
         expect(error.name).toBe('ValidationError');
         expect(error.context.form).toBe('registration');
@@ -260,7 +263,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
           expectedType: 'number',
           actualType: 'string',
           value: 'not-a-number',
-          field: 'age'
+          field: 'age',
         };
 
         const error = new ValidationError('Invalid data type for age field', context);
@@ -291,7 +294,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
         const context = {
           args: ['user.age', 'invalid'],
           expectedType: 'number',
-          actualType: 'string'
+          actualType: 'string',
         };
         const error = new OperatorError('Type mismatch in comparison', 'gt', context);
 
@@ -303,7 +306,12 @@ describe('Error Classes - Comprehensive Coverage', () => {
       it('should create operator error with original error', () => {
         const originalError = new SyntaxError('Invalid regex pattern');
         const context = { pattern: '[invalid(', text: 'test' };
-        const error = new OperatorError('Regex compilation failed', 'regex', context, originalError);
+        const error = new OperatorError(
+          'Regex compilation failed',
+          'regex',
+          context,
+          originalError
+        );
 
         expect(error.message).toBe('Regex compilation failed');
         expect(error.operator).toBe('regex');
@@ -364,10 +372,14 @@ describe('Error Classes - Comprehensive Coverage', () => {
           rightValue: 25,
           leftType: 'string',
           rightType: 'number',
-          strict: true
+          strict: true,
         };
 
-        const error = new OperatorError('Cannot compare string with number in strict mode', 'gt', context);
+        const error = new OperatorError(
+          'Cannot compare string with number in strict mode',
+          'gt',
+          context
+        );
 
         expect(error.operator).toBe('gt');
         expect(error.context.leftType).toBe('string');
@@ -381,21 +393,27 @@ describe('Error Classes - Comprehensive Coverage', () => {
           value: 'admin',
           array: 'not-an-array',
           expectedType: 'array',
-          actualType: 'string'
+          actualType: 'string',
         };
 
-        const error = new OperatorError('IN operator requires array as right operand', 'in', context);
+        const error = new OperatorError(
+          'IN operator requires array as right operand',
+          'in',
+          context
+        );
 
         expect(error.context.expectedType).toBe('array');
         expect(error.context.actualType).toBe('string');
       });
 
       it('should handle regex operator errors', () => {
-        const regexError = new SyntaxError('Invalid regular expression: /[unclosed/: Unterminated character class');
+        const regexError = new SyntaxError(
+          'Invalid regular expression: /[unclosed/: Unterminated character class'
+        );
         const context = {
           pattern: '[unclosed',
           text: 'test string',
-          flags: 'gi'
+          flags: 'gi',
         };
 
         const error = new OperatorError('Invalid regex pattern', 'regex', context, regexError);
@@ -410,10 +428,14 @@ describe('Error Classes - Comprehensive Coverage', () => {
           operator: 'and',
           expressions: [],
           minimum: 1,
-          actual: 0
+          actual: 0,
         };
 
-        const error = new OperatorError('AND operator requires at least one expression', 'and', context);
+        const error = new OperatorError(
+          'AND operator requires at least one expression',
+          'and',
+          context
+        );
 
         expect(error.context.minimum).toBe(1);
         expect(error.context.actual).toBe(0);
@@ -424,7 +446,12 @@ describe('Error Classes - Comprehensive Coverage', () => {
   describe('Error Chaining and Wrapping', () => {
     it('should properly chain errors', () => {
       const originalError = new TypeError('Original type error');
-      const wrappedError = new OperatorError('Wrapped in operator error', 'test', {}, originalError);
+      const wrappedError = new OperatorError(
+        'Wrapped in operator error',
+        'test',
+        {},
+        originalError
+      );
       const finalError = new RuleEngineError('Final wrapped error', null, {}, wrappedError);
 
       expect(finalError.originalError).toBe(wrappedError);
@@ -434,7 +461,12 @@ describe('Error Classes - Comprehensive Coverage', () => {
 
     it('should handle nested error serialization', () => {
       const innerError = new ValidationError('Inner validation error', { field: 'inner' });
-      const outerError = new OperatorError('Outer operator error', 'outer', { field: 'outer' }, innerError);
+      const outerError = new OperatorError(
+        'Outer operator error',
+        'outer',
+        { field: 'outer' },
+        innerError
+      );
 
       const json = outerError.toJSON();
       expect(json.name).toBe('OperatorError');
@@ -505,7 +537,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
               operator: error.operator,
               error: error.message,
               details: error.context,
-              timestamp: error.timestamp
+              timestamp: error.timestamp,
             };
           }
 
@@ -522,7 +554,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
             operator: wrappedError.operator,
             error: wrappedError.message,
             details: wrappedError.context,
-            timestamp: wrappedError.timestamp
+            timestamp: wrappedError.timestamp,
           };
         }
       }

@@ -335,8 +335,8 @@ describe('Numeric Operators - Coverage', () => {
             stringAge: '28',
             stringScore: '95.5',
             numberTarget: 30,
-            floatTarget: 90.0
-          }
+            floatTarget: 90.0,
+          },
         };
 
         expectRuleToPass(looseEngine, { gt: ['form.stringAge', 25] }, context); // '28' > 25 = true
@@ -425,10 +425,7 @@ describe('Numeric Operators - Coverage', () => {
       });
 
       it('should handle non-array arguments', () => {
-        const result = engine.evaluateExpr(
-          { gt: 'not_an_array' },
-          global.testContext
-        );
+        const result = engine.evaluateExpr({ gt: 'not_an_array' }, global.testContext);
         expect(result.success).toBe(false);
         expect(result.error).toContain('Invalid arguments for operator gt');
       });
