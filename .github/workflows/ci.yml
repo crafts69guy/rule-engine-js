@@ -148,10 +148,10 @@ jobs:
       - name: Run browser test with Puppeteer
         run: |
           cat > browser-test.js << 'EOF'
-          const puppeteer = require('puppeteer');
-          const http = require('http');
-          const fs = require('fs');
-          const path = require('path');
+          import puppeteer from 'puppeteer';
+          import http from 'http';
+          import fs from 'fs';
+          import path from 'path';
 
           // Simple HTTP server
           const server = http.createServer((req, res) => {
