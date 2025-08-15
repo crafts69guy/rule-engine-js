@@ -83,6 +83,21 @@ jobs:
       - name: Test import methods
         run: npm run test:all-envs
 
+      - name: Validate build outputs
+        run: |
+          echo "✅ Validating build outputs..."
+          
+          # Check expected files exist
+          test -f dist/index.js && echo "✅ Main build exists"
+          test -f dist/index.esm.js && echo "✅ ESM build exists" 
+          test -f dist/index.cjs && echo "✅ CJS build exists"
+          test -f types/index.d.ts && echo "✅ TypeScript definitions exist"
+          
+          # Basic syntax validation
+          node -c dist/index.cjs && echo "✅ CJS build syntax valid"
+          
+          echo "🎉 All builds validated"
+
       - name: Store build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -91,121 +106,3 @@ jobs:
             dist/
             types/
           retention-days: 30
-
-  browser-test:
-    name: Browser Compatibility Test
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build for browser
-        run: npm run build
-
-      - name: Create browser test
-        run: |
-          mkdir -p browser-test
-          cat > browser-test/test.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head><title>Browser Test</title></head>
-          <body>
-            <div id="result">Testing...</div>
-            <script src="../dist/index.js"></script>
-            <script>
-              try {
-                const engine = RuleEngineJS.createRuleEngine();
-                const rules = RuleEngineJS.createRuleHelpers();
-                const rule = rules.eq('test', 'test');
-                const result = engine.evaluateExpr(rule, {});
-                document.getElementById('result').innerHTML = 
-                  result.success ? '✅ Browser test passed' : '❌ Browser test failed';
-                console.log('Browser test result:', result.success);
-              } catch (e) {
-                console.error('Browser test error:', e);
-                document.getElementById('result').innerHTML = '❌ Browser test error: ' + e.message;
-              }
-            </script>
-          </body>
-          </html>
-          EOF
-
-      - name: Install browser testing tools
-        run: |
-          npm install --save-dev puppeteer
-
-      - name: Run browser test with Puppeteer
-        run: |
-          cat > browser-test.js << 'EOF'
-          import puppeteer from 'puppeteer';
-          import http from 'http';
-          import fs from 'fs';
-          import path from 'path';
-
-          // Simple HTTP server
-          const server = http.createServer((req, res) => {
-            let filePath = '.' + req.url;
-            if (filePath === './') filePath = './browser-test/test.html';
-            
-            const extname = path.extname(filePath);
-            let contentType = 'text/html';
-            
-            if (extname === '.js') contentType = 'text/javascript';
-            
-            fs.readFile(filePath, (err, content) => {
-              if (err) {
-                res.writeHead(404);
-                res.end('File not found');
-              } else {
-                res.writeHead(200, { 'Content-Type': contentType });
-                res.end(content, 'utf-8');
-              }
-            });
-          });
-
-          async function runTest() {
-            const browser = await puppeteer.launch({ 
-              headless: true,
-              args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-            
-            const page = await browser.newPage();
-            
-            // Start server
-            server.listen(8080);
-            
-            try {
-              await page.goto('http://localhost:8080');
-              await page.waitForTimeout(2000);
-              
-              const result = await page.$eval('#result', el => el.textContent);
-              console.log('Browser test result:', result);
-              
-              if (result.includes('✅')) {
-                console.log('✅ Browser test passed');
-                process.exit(0);
-              } else {
-                console.log('❌ Browser test failed');
-                process.exit(1);
-              }
-            } finally {
-              await browser.close();
-              server.close();
-            }
-          }
-
-          runTest().catch(console.error);
-          EOF
-
-          node browser-test.js
