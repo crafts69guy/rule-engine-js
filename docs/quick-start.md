@@ -2,11 +2,29 @@
 
 Get up and running with Rule Engine JS in under 5 minutes! 🚀
 
+## 📑 Table of contents
+
+- [Installation](#installation)
+- [Your First Rule](#your-first-rule)
+- [Building Complex Rules](#building-complex-rules)
+- [Dynamic Field Comparison](#dynamic-field-comparison)
+- [Common Patterns](#common-patterns)
+- [Working with Different Data Types](#working-with-different-data-types)
+- [Configuration Options](#configuration-options)
+- [Best Practices for Beginners](#best-practices-for-beginners)
+- [Debugging Your Rules](#debugging-your-rules)
+- [Next Steps](#next-steps)
+- [Common Questions](#common-questions)
+
+<a name="installation"></a>
+
 ## 📦 Installation
 
 ```bash
 npm install rule-engine-js
 ```
+
+<a name="your-first-rule"></a>
 
 ## 🎯 Your First Rule
 
@@ -35,6 +53,8 @@ console.log(result.success); // true
 ```
 
 🎉 **Congratulations!** You just created and evaluated your first rule.
+
+<a name="building-complex-rules"></a>
 
 ## 🧩 Building Complex Rules
 
@@ -72,6 +92,8 @@ const premiumWriteAccess = rules.and(hasWriteAccess, isPremium);
 
 console.log(engine.evaluateExpr(premiumWriteAccess, userData).success); // true
 ```
+
+<a name="dynamic-field-comparison"></a>
 
 ## 🔗 Dynamic Field Comparison
 
@@ -118,6 +140,8 @@ const betterValidation = rules.and(
 
 console.log(engine.evaluateExpr(betterValidation, enhancedOrderData).success);
 ```
+
+<a name="common-patterns"></a>
 
 ## 📝 Common Patterns
 
@@ -230,6 +254,8 @@ const qualifiesForDiscount = engine.evaluateExpr(discountEligibility, customerDa
 console.log('Qualifies for discount:', qualifiesForDiscount.success);
 ```
 
+<a name="working-with-different-data-types"></a>
+
 ## 🛠️ Working with Different Data Types
 
 ### Strings
@@ -311,6 +337,8 @@ const nestedRules = rules.and(
 );
 ```
 
+<a name="configuration-options"></a>
+
 ## ⚙️ Configuration Options
 
 ### Basic Configuration
@@ -336,6 +364,8 @@ const caseInsensitiveRule = rules.contains('name', 'john', { ignoreCase: true })
 // Regex with flags
 const regexRule = rules.regex('text', 'pattern', { flags: 'gi' });
 ```
+
+<a name="best-practices-for-beginners"></a>
 
 ## 🎯 Best Practices for Beginners
 
@@ -409,6 +439,8 @@ const requirementRule = rules.and(
 const unsafeRule = rules.eq('user.profile.status', 'verified'); // Fails if profile is null
 ```
 
+<a name="debugging-your-rules"></a>
+
 ## 🔍 Debugging Your Rules
 
 ### Understanding Results
@@ -446,6 +478,8 @@ const combined = engine.evaluateExpr(
 console.log('Combined result:', combined.success); // false
 ```
 
+<a name="next-steps"></a>
+
 ## 🚀 Next Steps
 
 Now that you've mastered the basics, explore these advanced topics:
@@ -455,6 +489,8 @@ Now that you've mastered the basics, explore these advanced topics:
 3. **[Performance Guide](./performance.md)** - Optimize your rules for speed
 4. **[Security Guide](./security.md)** - Keep your rules secure
 5. **[Real-World Examples](../examples/)** - See complex patterns in action
+
+<a name="common-questions"></a>
 
 ## 💡 Common Questions
 

@@ -11,6 +11,8 @@ Complete reference for all built-in operators in Rule Engine JS.
 - [Special Operators](#special-operators) - Range and null checks
 - [Validation Helpers](#validation-helpers) - Common patterns
 
+<a name="comparison-operators"></a>
+
 ## 🔍 Comparison Operators
 
 ### `eq` - Equal
@@ -229,6 +231,8 @@ rules.lte('review.rating', 5)
 rules.lte('task.duration', 'task.estimatedTime')
 ```
 
+<a name="logical-operators"></a>
+
 ## 🧠 Logical Operators
 
 ### `and` - Logical AND
@@ -388,6 +392,8 @@ rules.not(rules.not(rules.eq('user.active', true))); // ❌ Confusing
 // Better: Use positive logic
 rules.eq('user.active', true); // ✅ Clear
 ```
+
+<a name="string-operators"></a>
 
 ## 📝 String Operators
 
@@ -618,6 +624,8 @@ rules.regex('color', '^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3}))
 rules.regex('username', '^[a-zA-Z0-9_]{3,20})
 ```
 
+<a name="array-operators"></a>
+
 ## 📚 Array Operators
 
 ### `in` - Value in Array
@@ -746,6 +754,8 @@ rules.and(
   rules.notIn('user.status', ['banned', 'suspended']) // Blacklist bad statuses
 );
 ```
+
+<a name="special-operators"></a>
 
 ## 🔧 Special Operators
 
@@ -957,6 +967,8 @@ const userValidation = rules.and(
   rules.or(rules.isNull('user.website'), rules.regex('user.website', urlPattern))
 );
 ```
+
+<a name="validation-helpers"></a>
 
 ## ✅ Validation Helpers
 

@@ -15,6 +15,8 @@ A comprehensive guide to building powerful, flexible rule-based applications wit
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
 
+<a name="getting-started"></a>
+
 ## 🚀 Getting Started
 
 ### Installation
@@ -52,6 +54,8 @@ const engine = createRuleEngine({
   allowPrototypeAccess: false, // Security setting
 });
 ```
+
+<a name="core-concepts"></a>
 
 ## 🧩 Core Concepts
 
@@ -153,6 +157,8 @@ const strictRule = rules.eq('stringNumber', 25, { strict: true }); // '25' === 2
 // Configure globally
 const strictEngine = createRuleEngine({ strict: true });
 ```
+
+<a name="api-reference"></a>
 
 ## 📚 API Reference
 
@@ -277,6 +283,8 @@ const rule = rules.and(
   rules.validation.email('email')
 );
 ```
+
+<a name="operators-guide"></a>
 
 ## 🔧 Operators Guide
 
@@ -452,6 +460,8 @@ rules.isNull('nonexistent.path'); // true
 rules.isNotNull('existing.path');  // true if path exists and has value
 ```
 
+<a name="rule-helpers"></a>
+
 ## 🎯 Rule Helpers
 
 ### Convenience Methods
@@ -546,6 +556,8 @@ const registrationRule = rules.and(
   rules.validation.businessEmail('email')
 );
 ```
+
+<a name="performance--caching"></a>
 
 ## ⚡ Performance & Caching
 
@@ -720,6 +732,8 @@ const benchmark = benchmarkRule(complexRule, userData, 1000);
 console.log(benchmark);
 ```
 
+<a name="security"></a>
+
 ## 🔒 Security
 
 ### Prototype Pollution Protection
@@ -867,6 +881,8 @@ function evaluateWithSanitization(rule, rawContext) {
   return engine.evaluateExpr(rule, safeContext);
 }
 ```
+
+<a name="real-world-examples"></a>
 
 ## 🌍 Real-World Examples
 
@@ -1239,6 +1255,8 @@ const riskContext = {
 const riskAssessment = engine.evaluateExpr(riskAssessmentRule, riskContext);
 ```
 
+<a name="best-practices"></a>
+
 ## 🎯 Best Practices
 
 ### 1. Rule Organization and Maintainability
@@ -1594,6 +1612,8 @@ if (!typeValidation.valid) {
   console.error('Type validation failed:', typeValidation.errors);
 }
 ```
+
+<a name="troubleshooting"></a>
 
 ## 🔧 Troubleshooting
 

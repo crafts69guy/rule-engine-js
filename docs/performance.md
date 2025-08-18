@@ -15,6 +15,8 @@ Comprehensive guide to optimizing performance and achieving maximum efficiency w
 - [Common Performance Pitfalls](#common-performance-pitfalls)
 - [Advanced Optimization Techniques](#advanced-optimization-techniques)
 
+<a name="quick-performance-wins"></a>
+
 ## 🚀 Quick Performance Wins
 
 ### 1. Optimal Engine Configuration
@@ -82,6 +84,8 @@ function validateUser(user) {
 }
 ```
 
+<a name="understanding-performance-metrics"></a>
+
 ## 📈 Understanding Performance Metrics
 
 ### Built-in Metrics
@@ -129,6 +133,8 @@ console.log({
 });
 ```
 
+<a name="engine-configuration"></a>
+
 ## ⚙️ Engine Configuration
 
 ### Cache Configuration
@@ -165,6 +171,8 @@ const accurateEngine = createRuleEngine({
   strict: true, // Exact type matching (slower but safer)
 });
 ```
+
+<a name="rule-optimization"></a>
 
 ## 🧩 Rule Optimization
 
@@ -225,6 +233,8 @@ const earlyExitRule = rules.or(
 // The OR operator stops at the first true condition,
 // so put most likely conditions first
 ```
+
+<a name="caching-strategies"></a>
 
 ## 🗄️ Caching Strategies
 
@@ -301,6 +311,8 @@ function evaluateWithCleanup(rule, context) {
   return result;
 }
 ```
+
+<a name="memory-management"></a>
 
 ## 🧠 Memory Management
 
@@ -381,6 +393,8 @@ function monitorMemoryUsage() {
 // Periodic memory monitoring
 setInterval(monitorMemoryUsage, 60000); // Every minute
 ```
+
+<a name="benchmarking-and-monitoring"></a>
 
 ## 📊 Benchmarking and Monitoring
 
@@ -545,6 +559,8 @@ const result = monitor.wrapEvaluateExpr(rule, context);
 const stats = monitor.getStats();
 console.log(stats);
 ```
+
+<a name="scaling-strategies"></a>
 
 ## 📈 Scaling Strategies
 
@@ -747,6 +763,8 @@ class RuleCompiler {
 }
 ```
 
+<a name="common-performance-pitfalls"></a>
+
 ## ⚠️ Common Performance Pitfalls
 
 ### 1. Creating New Engines Repeatedly
@@ -831,6 +849,8 @@ const simpleValidation = rules.and(
   rules.regex('password', '[@$!%*?&]') // Has special char
 );
 ```
+
+<a name="advanced-optimization-techniques"></a>
 
 ## 🔧 Advanced Optimization Techniques
 

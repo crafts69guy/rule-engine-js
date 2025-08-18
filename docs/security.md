@@ -17,6 +17,8 @@ Comprehensive security best practices and guidelines for building secure rule-ba
 - [Security Testing](#security-testing)
 - [Production Security Checklist](#production-security-checklist)
 
+<a name="security-overview"></a>
+
 ## 🛡️ Security Overview
 
 Rule Engine JS is designed with security as a core principle. It provides multiple layers of protection against common attacks while maintaining flexibility and performance.
@@ -28,6 +30,8 @@ Rule Engine JS is designed with security as a core principle. It provides multip
 3. **Least Privilege** - Minimal access to sensitive operations
 4. **Input Validation** - Comprehensive input sanitization
 5. **Audit Trail** - Complete logging of security-relevant events
+
+<a name="built-in-security-features"></a>
 
 ## 🔐 Built-in Security Features
 
@@ -108,6 +112,8 @@ const insecureEngine = createRuleEngine({
   enableDebug: true, // Exposes internal info
 });
 ```
+
+<a name="input-validation--sanitization"></a>
 
 ## 🔍 Input Validation & Sanitization
 
@@ -357,6 +363,8 @@ function secureEvaluateRule(rule, rawContext) {
 }
 ```
 
+<a name="prototype-pollution-protection"></a>
+
 ## 🚫 Prototype Pollution Protection
 
 ### Understanding the Threat
@@ -464,6 +472,8 @@ function extraSecureEvaluation(rule, context) {
   return engine.evaluateExpr(rule, protectedContext);
 }
 ```
+
+<a name="code-injection-prevention"></a>
 
 ## 💉 Code Injection Prevention
 
@@ -720,6 +730,8 @@ try {
   console.error('Secure rule building failed:', error.message);
 }
 ```
+
+<a name="access-control--authorization"></a>
 
 ## 🔐 Access Control & Authorization
 
@@ -1048,6 +1060,8 @@ function secureEvaluateWithFieldSecurity(rule, context, userRole) {
 }
 ```
 
+<a name="data-privacy--sensitive-information"></a>
+
 ## 🔒 Data Privacy & Sensitive Information
 
 ### Data Masking and Redaction
@@ -1217,6 +1231,8 @@ function secureEvaluateWithMasking(rule, context, userRole) {
 }
 ```
 
+<a name="secure-configuration"></a>
+
 ## ⚙️ Secure Configuration
 
 ### Production Security Configuration
@@ -1306,6 +1322,8 @@ function validateEngineConfig(config) {
   return { valid: errors.length === 0, errors };
 }
 ```
+
+<a name="audit-logging--monitoring"></a>
 
 ## 📊 Audit Logging & Monitoring
 
@@ -1580,6 +1598,8 @@ function auditedEvaluateExpr(rule, context, userInfo = {}) {
 }
 ```
 
+<a name="common-security-pitfalls"></a>
+
 ## ⚠️ Common Security Pitfalls
 
 ### 1. Accepting Untrusted Rule Definitions
@@ -1716,6 +1736,8 @@ app.post('/evaluate', (req, res) => {
   }
 });
 ```
+
+<a name="security-testing"></a>
 
 ## 🧪 Security Testing
 
@@ -2176,6 +2198,8 @@ function secureEvaluateWithScanning(rule, context) {
   return engine.evaluateExpr(rule, context);
 }
 ```
+
+<a name="production-security-checklist"></a>
 
 ## ✅ Production Security Checklist
 
