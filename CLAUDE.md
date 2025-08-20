@@ -158,3 +158,32 @@ The engine includes built-in metrics tracking:
 - Average response time
 
 Access via `engine.getMetrics()` and `engine.getCacheStats()`.
+
+## Journaling workflow
+
+You (the AI agent) have to report what you did in this project at each end of the task in my Inkdrop note.
+
+Create one in the "Journal" notebook with the title "Log: <Job title>".
+Update the same note throughout the same session.
+
+Update this note at each end of the task with the following format:
+
+```
+## Log: <task title>
+- **Prompt**: <prompt you received>
+- **Issue**: <issue description>
+
+### What I did: <brief description of what you did>
+...
+
+### How I did it: <brief description of how you did it>
+...
+
+### What were challenging: <brief description of any challenges you faced>
+...
+
+### Future work (optional)
+- <any future work or improvements you suggest>
+```
+
+- **IMPORTANT**: Do not forget to update the note at the end of each task!!!
