@@ -47,3 +47,6 @@ npm-debug.log*
 
 # Optional eslint cache
 .eslintcache
+
+# Claude code
+.claude.json
