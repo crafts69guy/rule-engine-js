@@ -11,6 +11,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preparing for next release
 
+## [1.0.2] - 2025-08-20
+
+### Added
+
+- **New String Length Validation Helpers**: Enhanced rule helpers with string length validation utilities
+  - `validation.minLength(path, minLength)` - Validates minimum string length using `gte` operator
+  - `validation.maxLength(path, maxLength)` - Validates maximum string length using `lte` operator
+  - `validation.lengthRange(path, minLength, maxLength)` - Validates string length within range using `between` operator
+  - `validation.exactLength(path, length)` - Validates exact string length using `eq` operator
+- Claude Code integration context (`CLAUDE.md`) for improved development experience
+- Comprehensive test coverage expansion with 382+ new test cases:
+  - Enhanced basic core functionality tests (`tests/unit/core/basic.test.js`)
+  - Expanded logical operator test coverage (`tests/unit/operators/logical.test.js`)
+  - Comprehensive string operator validation (`tests/unit/operators/string.test.js`)
+
+### Changed
+
+- Improved CI/CD pipeline with Claude Code Review workflow integration
+- Enhanced test suite organization with better edge case coverage including:
+  - Empty string handling
+  - Boundary condition testing
+  - Very long string validation
+  - Comprehensive string length validation scenarios
+
+### Fixed
+
+- Various improvements to code quality and testing reliability
+- Better error handling and validation coverage
+
 ## [1.0.0] - 2025-08-12
 
 ### Added
