@@ -88,7 +88,7 @@
     "url": "git+https://github.com/crafts69guy/rule-engine-js.git"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "bugs": {
     "url": "https://github.com/crafts69guy/rule-engine-js/issues"
