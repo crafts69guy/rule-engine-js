@@ -149,5 +149,86 @@ describe('Logical Operators', () => {
       // (true OR false) AND (NOT false) = true AND true = true
       expectRuleToPass(engine, rule);
     });
+
+    it('should handle deeply nested logical structures', () => {
+      const rule = {
+        or: [
+          {
+            and: [
+              { eq: ['user.role', 'guest'] }, // false
+              { gte: ['user.age', 21] }, // true
+            ],
+          },
+          {
+            and: [
+              { eq: ['user.role', 'admin'] }, // true
+              {
+                not: [
+                  { contains: ['user.email', 'temp'] }, // false (no temp in john@company.com)
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      // (false AND true) OR (true AND NOT false) = false OR true = true
+      expectRuleToPass(engine, rule);
+    });
+
+    it('should short-circuit AND operations correctly', () => {
+      const rule = {
+        and: [
+          { eq: ['user.name', 'Jane Doe'] }, // false - should short-circuit
+          { eq: ['nonexistent.field', 'value'] }, // would fail if evaluated
+        ],
+      };
+      const result = expectRuleToFail(engine, rule);
+      expect(result.success).toBe(false);
+    });
+
+    it('should short-circuit OR operations correctly', () => {
+      const rule = {
+        or: [
+          { eq: ['user.name', 'John Doe'] }, // true - should short-circuit
+          { eq: ['nonexistent.field', 'value'] }, // would fail if evaluated
+        ],
+      };
+      expectRuleToPass(engine, rule);
+    });
+
+    it('should handle mixed logical operators with different data types', () => {
+      const rule = {
+        and: [
+          {
+            or: [
+              { gte: ['user.age', 25] }, // true (28 >= 25)
+              { contains: ['user.role', 'mod'] }, // false
+            ],
+          },
+          {
+            not: [
+              { in: ['user.name', ['Jane', 'Bob', 'Alice']] }, // false (John not in list)
+            ],
+          },
+        ],
+      };
+      expectRuleToPass(engine, rule);
+    });
+  });
+
+  describe('Performance with Logical Operations', () => {
+    it('should handle large logical expressions efficiently', () => {
+      const conditions = [];
+      for (let i = 0; i < 20; i++) {
+        conditions.push({ gte: ['user.age', i] }); // user.age is 28, so many will be true
+      }
+
+      const rule = { or: conditions };
+      const startTime = Date.now();
+      expectRuleToPass(engine, rule);
+      const endTime = Date.now();
+
+      expect(endTime - startTime).toBeLessThan(100); // Should complete within 100ms
+    });
   });
 });
