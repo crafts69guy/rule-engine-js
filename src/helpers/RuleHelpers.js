@@ -257,6 +257,13 @@ export class RuleHelpers {
       maxAge: (path, maxAge) => this.lte(path, maxAge),
       ageRange: (path, minAge, maxAge) => this.between(path, [minAge, maxAge]),
       oneOf: (path, values) => this.in(path, values),
+
+      // String length validators
+      minLength: (path, minLength) => this.gte(`${path}.length`, minLength),
+      maxLength: (path, maxLength) => this.lte(`${path}.length`, maxLength),
+      lengthRange: (path, minLength, maxLength) =>
+        this.between(`${path}.length`, [minLength, maxLength]),
+      exactLength: (path, length) => this.eq(`${path}.length`, length),
     };
   }
 }

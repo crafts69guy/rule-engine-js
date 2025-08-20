@@ -747,6 +747,86 @@ describe('RuleHelpers - Comprehensive Branch Coverage', () => {
         expectRuleToPass(engine, rule);
       });
     });
+
+    describe('validation.minLength method', () => {
+      it('should create gte rule for string length', () => {
+        const rule = h.validation.minLength('user.name', 3);
+        expect(rule).toEqual({ gte: ['user.name.length', 3] });
+        expectRuleToPass(engine, rule);
+      });
+
+      it('should work with context having strings of appropriate length', () => {
+        const context = { user: { password: 'secret123' } };
+        expectRuleToPass(engine, h.validation.minLength('user.password', 8), context);
+        expectRuleToFail(engine, h.validation.minLength('user.password', 15), context);
+      });
+    });
+
+    describe('validation.maxLength method', () => {
+      it('should create lte rule for string length', () => {
+        const rule = h.validation.maxLength('user.name', 50);
+        expect(rule).toEqual({ lte: ['user.name.length', 50] });
+        expectRuleToPass(engine, rule);
+      });
+
+      it('should work with context having strings of appropriate length', () => {
+        const context = { user: { username: 'john' } };
+        expectRuleToPass(engine, h.validation.maxLength('user.username', 10), context);
+        expectRuleToFail(engine, h.validation.maxLength('user.username', 3), context);
+      });
+    });
+
+    describe('validation.lengthRange method', () => {
+      it('should create between rule for string length', () => {
+        const rule = h.validation.lengthRange('user.password', 8, 20);
+        expect(rule).toEqual({ between: ['user.password.length', [8, 20]] });
+      });
+
+      it('should work with context having strings within range', () => {
+        const context = { user: { password: 'secret123!' } };
+        expectRuleToPass(engine, h.validation.lengthRange('user.password', 8, 15), context);
+        expectRuleToFail(engine, h.validation.lengthRange('user.password', 15, 25), context);
+        expectRuleToFail(engine, h.validation.lengthRange('user.password', 1, 5), context);
+      });
+    });
+
+    describe('validation.exactLength method', () => {
+      it('should create eq rule for exact string length', () => {
+        const rule = h.validation.exactLength('user.code', 6);
+        expect(rule).toEqual({ eq: ['user.code.length', 6] });
+      });
+
+      it('should work with context having strings of exact length', () => {
+        const context = { user: { zipCode: '12345', phoneCode: '1234' } };
+        expectRuleToPass(engine, h.validation.exactLength('user.zipCode', 5), context);
+        expectRuleToFail(engine, h.validation.exactLength('user.phoneCode', 5), context);
+      });
+    });
+
+    describe('validation length helpers - additional edge cases', () => {
+      it('should handle empty strings', () => {
+        const emptyContext = { user: { field: '' } };
+        expectRuleToPass(engine, h.validation.exactLength('user.field', 0), emptyContext);
+        expectRuleToFail(engine, h.validation.minLength('user.field', 1), emptyContext);
+      });
+
+      it('should handle very long strings', () => {
+        const longString = 'a'.repeat(100);
+        const longContext = { user: { field: longString } };
+        expectRuleToPass(engine, h.validation.minLength('user.field', 50), longContext);
+        expectRuleToPass(engine, h.validation.maxLength('user.field', 150), longContext);
+        expectRuleToPass(engine, h.validation.lengthRange('user.field', 90, 110), longContext);
+        expectRuleToPass(engine, h.validation.exactLength('user.field', 100), longContext);
+      });
+
+      it('should handle boundary conditions', () => {
+        const boundaryContext = { user: { field: 'test' } }; // length 4
+        expectRuleToPass(engine, h.validation.minLength('user.field', 4), boundaryContext);
+        expectRuleToPass(engine, h.validation.maxLength('user.field', 4), boundaryContext);
+        expectRuleToPass(engine, h.validation.lengthRange('user.field', 4, 4), boundaryContext);
+        expectRuleToPass(engine, h.validation.exactLength('user.field', 4), boundaryContext);
+      });
+    });
   });
 
   describe('Integration and Complex Scenarios', () => {
@@ -820,6 +900,14 @@ describe('RuleHelpers - Comprehensive Branch Coverage', () => {
       expect(h.validation.maxAge('age', 65)).toEqual({ lte: ['age', 65] });
       expect(h.validation.ageRange('age', 18, 65)).toEqual({ between: ['age', [18, 65]] });
       expect(h.validation.oneOf('role', ['a', 'b'])).toEqual({ in: ['role', ['a', 'b']] });
+
+      // Test length validation helpers
+      expect(h.validation.minLength('field', 5)).toEqual({ gte: ['field.length', 5] });
+      expect(h.validation.maxLength('field', 10)).toEqual({ lte: ['field.length', 10] });
+      expect(h.validation.lengthRange('field', 5, 10)).toEqual({
+        between: ['field.length', [5, 10]],
+      });
+      expect(h.validation.exactLength('field', 8)).toEqual({ eq: ['field.length', 8] });
     });
   });
 
