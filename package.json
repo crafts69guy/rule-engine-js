@@ -1,6 +1,6 @@
 {
   "name": "rule-engine-js",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A high-performance, secure rule engine with dynamic field comparison support",
   "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
