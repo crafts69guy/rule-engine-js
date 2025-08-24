@@ -198,6 +198,8 @@ const validationRule = rules.and(
   rules.validation.required('lastName'),
   rules.validation.email('email'),
   rules.validation.ageRange('age', 18, 120),
+  rules.validation.minLength('password', 8),
+  rules.validation.maxLength('username', 20),
   rules.field.equals('password', 'confirmPassword'),
   rules.isTrue('agreedToTerms')
 );
@@ -207,6 +209,7 @@ const formData = {
   lastName: 'Doe',
   email: 'john@example.com',
   age: 25,
+  username: 'johndoe',
   password: 'secret123',
   confirmPassword: 'secret123',
   agreedToTerms: true,
@@ -251,14 +254,14 @@ const approved = engine.evaluateExpr(approvalRule, application);
 
 ## 📚 Available Operators
 
-| Category       | Operators                                     | Description                               |
-| -------------- | --------------------------------------------- | ----------------------------------------- |
-| **Comparison** | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`         | Compare values with type coercion support |
-| **Logical**    | `and`, `or`, `not`                            | Combine multiple conditions               |
-| **String**     | `contains`, `startsWith`, `endsWith`, `regex` | Text pattern matching                     |
-| **Array**      | `in`, `notIn`                                 | Check membership in arrays                |
-| **Special**    | `between`, `isNull`, `isNotNull`              | Range and null checking                   |
-| **Validation** | `email`, `required`, `ageRange`, `oneOf`      | Common validation patterns                |
+| Category       | Operators                                                                                        | Description                               |
+| -------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| **Comparison** | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`                                                            | Compare values with type coercion support |
+| **Logical**    | `and`, `or`, `not`                                                                               | Combine multiple conditions               |
+| **String**     | `contains`, `startsWith`, `endsWith`, `regex`                                                    | Text pattern matching                     |
+| **Array**      | `in`, `notIn`                                                                                    | Check membership in arrays                |
+| **Special**    | `between`, `isNull`, `isNotNull`                                                                 | Range and null checking                   |
+| **Validation** | `email`, `required`, `ageRange`, `oneOf`, `minLength`, `maxLength`, `lengthRange`, `exactLength` | Common validation patterns                |
 
 ## ⚡ Performance Features
 
@@ -390,8 +393,9 @@ function useFormValidation(validationRules) {
 // Usage
 const validationRules = {
   email: rules.validation.email('email'),
+  username: rules.validation.lengthRange('username', 3, 20),
   password: rules.and(
-    rules.gte('password.length', 8),
+    rules.validation.minLength('password', 8),
     rules.regex('password', '(?=.*[0-9])(?=.*[a-zA-Z])')
   ),
 };
