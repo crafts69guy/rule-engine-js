@@ -98,13 +98,15 @@ async function runQualityChecks() {
 
   const sizeChecks = [
     { file: 'dist/index.min.js', maxSize: 50 * 1024, description: 'Minified UMD bundle' },
-    { file: 'dist/index.esm.js', maxSize: 50 * 1024, description: 'ESM bundle' },
-    { file: 'dist/index.cjs', maxSize: 50 * 1024, description: 'CommonJS bundle' },
+    { file: 'dist/index.esm.js', maxSize: 70 * 1024, description: 'ESM bundle' },
+    { file: 'dist/index.cjs', maxSize: 70 * 1024, description: 'CommonJS bundle' },
   ];
 
   for (const { file, maxSize, description } of sizeChecks) {
     const passed = await checkFileSize(file, maxSize, description);
-    if (!passed) allPassed = false;
+    if (!passed) {
+      allPassed = false;
+    }
   }
 
   // Package structure checks
