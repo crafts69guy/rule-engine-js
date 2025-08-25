@@ -220,12 +220,64 @@ export class PathResolver {
       return String(context.id);
     }
 
-    // Generate a simple hash based on object structure
+    // Generate a hash based on object structure AND values
     const keys = Object.keys(context).sort();
     const keyString = keys.join(',');
     const valueTypes = keys.map((key) => typeof context[key]).join(',');
+    const baseId = `${keyString}:${valueTypes}:${keys.length}`;
 
-    return `${keyString}:${valueTypes}:${keys.length}`;
+    // Always include value hash to differentiate contexts with same structure
+    const valueHash = this._hashStatefulContext(context);
+    const contextId = `${baseId}:values:${valueHash}`;
+
+    // Special handling for stateful contexts with _previous
+    // This ensures different _previous contexts generate different cache keys
+    if (context._previous) {
+      const previousHash = this._hashStatefulContext(context._previous);
+      return `${contextId}:prev:${previousHash}`;
+    }
+
+    // Special handling for contexts with _meta (used by stateful operators)
+    // Include the hasChangeOperator flag in cache key for consistency
+    if (context._meta && typeof context._meta.hasChangeOperator === 'boolean') {
+      return `${contextId}:meta:${context._meta.hasChangeOperator}`;
+    }
+
+    return contextId;
+  }
+
+  /**
+   * Create a lightweight hash for stateful context values
+   * Specifically designed for _previous context caching
+   * @private
+   */
+  _hashStatefulContext(context, depth = 0) {
+    // Prevent infinite recursion
+    if (depth > 3 || !context || typeof context !== 'object') {
+      return String(context || 'null');
+    }
+
+    try {
+      // For small objects, create a deterministic string representation
+      const entries = Object.keys(context)
+        .sort()
+        .slice(0, 10) // Limit keys for performance
+        .map((key) => {
+          const value = context[key];
+          if (value && typeof value === 'object') {
+            // Recursively hash nested objects (limited depth)
+            return `${key}:${this._hashStatefulContext(value, depth + 1)}`;
+          } else {
+            // Include primitive values directly
+            return `${key}:${String(value)}`;
+          }
+        });
+
+      return entries.join('|');
+    } catch {
+      // Fallback for circular references or other issues
+      return `error:${Date.now()}:${Math.random()}`;
+    }
   }
 
   /**

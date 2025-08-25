@@ -33,7 +33,6 @@ export class RuleEngine {
    * @returns {Object} Evaluation result with success flag and details
    */
   evaluateExpr(expr, context, depth = 0) {
-    // eslint-disable-next-line no-undef
     const startTime = performance.now();
     this.metrics.evaluations++;
 
@@ -393,7 +392,6 @@ export class RuleEngine {
    * @private
    */
   _updateMetrics(startTime, wasCacheHit) {
-    // eslint-disable-next-line no-undef
     const duration = performance.now() - startTime;
     this.metrics.totalTime += duration;
     this.metrics.avgTime = this.metrics.totalTime / this.metrics.evaluations;

@@ -31,6 +31,15 @@ export const OPERATOR_NAMES = {
   IS_NOT_NULL: 'isNotNull',
 };
 
+export const STATE_OPERATOR_NAMES = {
+  CHANGED: 'changed',
+  CHANGED_BY: 'changedBy',
+  CHANGED_FROM: 'changedFrom',
+  CHANGED_TO: 'changedTo',
+  INCREASED: 'increased',
+  DECREASED: 'decreased',
+};
+
 /**
  * Default configuration
  */
