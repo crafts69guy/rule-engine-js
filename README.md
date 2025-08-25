@@ -33,6 +33,8 @@ const result = engine.evaluateExpr(rule, user);
 - **⚡ High Performance** - Intelligent caching with LRU eviction
 - **🔒 Security First** - Built-in protection against prototype pollution
 - **🧩 Dynamic Field Comparison** - Compare values across different data paths
+- **📈 Stateful Rule Engine** - Track state changes with event-driven architecture
+- **🔄 State Change Operators** - Built-in operators for detecting value changes
 - **📝 Type Safe** - Full TypeScript support with comprehensive type definitions
 - **🔧 Extensible** - Easy custom operator registration
 - **📊 Monitoring** - Built-in performance metrics and cache statistics
@@ -50,7 +52,7 @@ yarn add rule-engine-js
 ## 🎯 Quick Start
 
 ```javascript
-import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+import { createRuleEngine, createRuleHelpers, StatefulRuleEngine } from 'rule-engine-js';
 
 // Create engine and helpers
 const engine = createRuleEngine();
@@ -254,14 +256,127 @@ const approved = engine.evaluateExpr(approvalRule, application);
 
 ## 📚 Available Operators
 
-| Category       | Operators                                                                                        | Description                               |
-| -------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| **Comparison** | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`                                                            | Compare values with type coercion support |
-| **Logical**    | `and`, `or`, `not`                                                                               | Combine multiple conditions               |
-| **String**     | `contains`, `startsWith`, `endsWith`, `regex`                                                    | Text pattern matching                     |
-| **Array**      | `in`, `notIn`                                                                                    | Check membership in arrays                |
-| **Special**    | `between`, `isNull`, `isNotNull`                                                                 | Range and null checking                   |
-| **Validation** | `email`, `required`, `ageRange`, `oneOf`, `minLength`, `maxLength`, `lengthRange`, `exactLength` | Common validation patterns                |
+| Category         | Operators                                                                                        | Description                               |
+| ---------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| **Comparison**   | `eq`, `neq`, `gt`, `gte`, `lt`, `lte`                                                            | Compare values with type coercion support |
+| **Logical**      | `and`, `or`, `not`                                                                               | Combine multiple conditions               |
+| **String**       | `contains`, `startsWith`, `endsWith`, `regex`                                                    | Text pattern matching                     |
+| **Array**        | `in`, `notIn`                                                                                    | Check membership in arrays                |
+| **Special**      | `between`, `isNull`, `isNotNull`                                                                 | Range and null checking                   |
+| **State Change** | `changed`, `changedBy`, `changedFrom`, `changedTo`, `increased`, `decreased`                     | Detect state changes between evaluations  |
+| **Validation**   | `email`, `required`, `ageRange`, `oneOf`, `minLength`, `maxLength`, `lengthRange`, `exactLength` | Common validation patterns                |
+
+## 🔄 Stateful Rule Engine
+
+The StatefulRuleEngine extends the base engine with state tracking and event-driven capabilities, perfect for monitoring data changes and triggering actions based on state transitions.
+
+### Key Features
+
+- **State Tracking**: Maintains previous states for comparison
+- **Event System**: Listen to rule state changes with events
+- **State Change Operators**: Specialized operators for detecting changes
+- **History Management**: Optional evaluation history storage
+- **Flexible Triggering**: Configure when rules should trigger
+
+### Basic Usage
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+// Create base engine and wrap with StatefulRuleEngine
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: false, // Trigger only on false → true transitions
+  storeHistory: true, // Keep evaluation history
+  maxHistorySize: 100, // Limit history entries
+});
+
+// Listen for events
+statefulEngine.on('triggered', (event) => {
+  console.log(`Rule ${event.ruleId} was triggered!`);
+});
+
+statefulEngine.on('changed', (event) => {
+  console.log(`Rule ${event.ruleId} state changed`);
+});
+
+// Define rules with state change operators
+const temperatureAlert = {
+  and: [
+    { gte: ['temperature', 25] },
+    { increased: ['temperature'] }, // Only trigger when temperature increases
+  ],
+};
+
+const statusChanged = { changedFrom: ['user.status', 'pending'] };
+
+// Evaluate rules with state tracking
+let data = { temperature: 20, user: { status: 'pending' } };
+statefulEngine.evaluate('temp-rule', temperatureAlert, data);
+
+// Update data and evaluate again
+data = { temperature: 26, user: { status: 'active' } };
+const result = statefulEngine.evaluate('temp-rule', temperatureAlert, data);
+// This will trigger since temperature increased and is now >= 25
+
+const statusResult = statefulEngine.evaluate('status-rule', statusChanged, data);
+// This will trigger since status changed from 'pending' to 'active'
+```
+
+### State Change Operators
+
+| Operator      | Description                        | Example                                  |
+| ------------- | ---------------------------------- | ---------------------------------------- |
+| `changed`     | Detects any value change           | `{ changed: ['user.email'] }`            |
+| `changedBy`   | Detects numeric change by amount   | `{ changedBy: ['score', 10] }`           |
+| `changedFrom` | Detects change from specific value | `{ changedFrom: ['status', 'pending'] }` |
+| `changedTo`   | Detects change to specific value   | `{ changedTo: ['status', 'completed'] }` |
+| `increased`   | Detects numeric increase           | `{ increased: ['temperature'] }`         |
+| `decreased`   | Detects numeric decrease           | `{ decreased: ['stock'] }`               |
+
+### Event Types
+
+- **`triggered`**: Rule transitioned from false → true
+- **`untriggered`**: Rule transitioned from true → false
+- **`changed`**: Rule success state changed
+- **`evaluated`**: Every rule evaluation (regardless of result)
+
+### Real-World Example: Order Processing
+
+```javascript
+const orderRules = {
+  'payment-received': { changedTo: ['order.paymentStatus', 'paid'] },
+  'inventory-low': {
+    and: [{ decreased: ['product.stock'] }, { lte: ['product.stock', 10] }],
+  },
+  'price-drop': {
+    and: [{ decreased: ['product.price'] }, { changedBy: ['product.price', 5] }],
+  },
+};
+
+// Set up event handlers
+statefulEngine.on('triggered', (event) => {
+  switch (event.ruleId) {
+    case 'payment-received':
+      processOrder(event.context);
+      break;
+    case 'inventory-low':
+      reorderStock(event.context.product);
+      break;
+    case 'price-drop':
+      notifyCustomers(event.context.product);
+      break;
+  }
+});
+
+// Batch evaluate all rules
+const orderData = {
+  order: { paymentStatus: 'paid' },
+  product: { stock: 8, price: 95 },
+};
+
+statefulEngine.evaluateBatch(orderRules, orderData);
+```
 
 ## ⚡ Performance Features
 
