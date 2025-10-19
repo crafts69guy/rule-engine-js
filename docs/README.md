@@ -1817,7 +1817,6 @@ function monitorMemoryUsage() {
 #### Enable Debug Mode
 
 ```javascript
-// Create engine with debug enabled
 const debugEngine = createRuleEngine({
   enableDebug: true,
   maxDepth: 20,

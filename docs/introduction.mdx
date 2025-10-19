@@ -1,0 +1,190 @@
+---
+title: Introduction
+description: 'A powerful, flexible JavaScript rule engine for dynamic business logic evaluation'
+---
+
+<img className="block dark:hidden" src="/images/hero-light.webp" alt="Rule Engine JS Hero Light" />
+<img className="hidden dark:block" src="/images/hero-dark.webp" alt="Rule Engine JS Hero Dark" />
+
+## Welcome to Rule Engine JS
+
+**Stop hardcoding business logic.** Rule Engine JS lets you define complex conditional logic as data, making your applications more flexible, maintainable, and business-friendly.
+
+<CodeGroup>
+
+```javascript Instead of this...
+if (user.age >= 18 && user.role === 'admin' && user.permissions.includes('write')) {
+  return true;
+}
+```
+
+```javascript Write this declarative rule
+const rule = rules.and(
+  rules.gte('age', 18),
+  rules.eq('role', 'admin'),
+  rules.in('write', 'permissions')
+);
+
+const result = engine.evaluateExpr(rule, user);
+```
+
+</CodeGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Zero Dependencies" icon="feather">
+    Lightweight with no external dependencies for minimal bundle size
+  </Card>
+  <Card title="High Performance" icon="bolt">
+    Intelligent caching with LRU eviction for optimal speed
+  </Card>
+  <Card title="Security First" icon="shield">
+    Built-in protection against prototype pollution and malicious access
+  </Card>
+  <Card title="Type Safe" icon="code">
+    Full TypeScript support with comprehensive type definitions
+  </Card>
+  <Card title="Stateful Engine" icon="chart-line">
+    Track state changes with event-driven architecture
+  </Card>
+  <Card title="Extensible" icon="puzzle-piece">
+    Easy custom operator registration for business-specific logic
+  </Card>
+  <Card title="Dynamic Fields" icon="arrows-left-right">
+    Compare values across different data paths
+  </Card>
+  <Card title="Monitoring" icon="chart-bar">
+    Built-in performance metrics and cache statistics
+  </Card>
+</CardGroup>
+
+## Why Choose Rule Engine JS?
+
+<AccordionGroup>
+  <Accordion title="Flexible Business Logic">
+    Define business rules as JSON data instead of hardcoding them. Update rules without deploying code changes.
+  </Accordion>
+
+<Accordion title="Developer-Friendly API">
+  Fluent helper API makes building complex rules intuitive and readable.
+</Accordion>
+
+<Accordion title="Production-Ready">
+  Battle-tested with 500+ unit tests and >90% code coverage. Zero dependencies means fewer security
+  vulnerabilities.
+</Accordion>
+
+  <Accordion title="Framework Agnostic">
+    Works with any JavaScript framework - React, Vue, Angular, Node.js, Express, and more.
+  </Accordion>
+</AccordionGroup>
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install rule-engine-js
+```
+
+```bash yarn
+yarn add rule-engine-js
+```
+
+```bash pnpm
+pnpm add rule-engine-js
+```
+
+</CodeGroup>
+
+## Quick Example
+
+Here's a simple example to get you started:
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+// Create engine and helpers
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+// Your data
+const user = {
+  name: 'John Doe',
+  age: 28,
+  role: 'admin',
+  email: 'john@company.com',
+  permissions: ['read', 'write', 'delete'],
+};
+
+// Simple rule
+const isAdult = rules.gte('age', 18);
+console.log(engine.evaluateExpr(isAdult, user).success); // true
+
+// Complex rule
+const canAccess = rules.and(
+  rules.gte('age', 18),
+  rules.eq('role', 'admin'),
+  rules.validation.email('email'),
+  rules.in('write', 'permissions')
+);
+
+console.log(engine.evaluateExpr(canAccess, user).success); // true
+```
+
+## Core Principles
+
+<Steps>
+  <Step title="Rules are Data">
+    Rules are simple JSON objects that describe conditions, making them easy to store, version, and manage.
+  </Step>
+
+<Step title="Declarative Syntax">
+  Express complex logic in a readable, maintainable format using helper functions or raw JSON.
+</Step>
+
+<Step title="Safe by Default">
+  Security features protect against common vulnerabilities like prototype pollution and malicious
+  data access.
+</Step>
+
+  <Step title="Performance Optimized">
+    Intelligent caching and optimized evaluation paths ensure fast rule execution even with complex logic.
+  </Step>
+</Steps>
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in 5 minutes with our quickstart guide
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/essentials/rule-engine">
+    Learn about the engine architecture and key concepts
+  </Card>
+  <Card title="Operators Reference" icon="wrench" href="/operators/overview">
+    Explore all available operators and their usage
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-rules">
+    See real-world examples and use cases
+  </Card>
+</CardGroup>
+
+## Community and Support
+
+<CardGroup cols={3}>
+  <Card title="GitHub" icon="github" href="https://github.com/crafts69guy/rule-engine-js">
+    View source code and contribute
+  </Card>
+  <Card title="Issues" icon="bug" href="https://github.com/crafts69guy/rule-engine-js/issues">
+    Report bugs or request features
+  </Card>
+  <Card
+    title="Discussions"
+    icon="comments"
+    href="https://github.com/crafts69guy/rule-engine-js/discussions"
+  >
+    Ask questions and share ideas
+  </Card>
+</CardGroup>

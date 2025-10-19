@@ -1,0 +1,500 @@
+---
+title: 'Rule Engine'
+description: 'Core evaluation engine with caching and performance optimization'
+---
+
+## Overview
+
+The `RuleEngine` is the core component responsible for evaluating rule expressions against data contexts. It provides high-performance rule evaluation with intelligent caching, operator management, and built-in security features.
+
+<Info>
+The Rule Engine is designed to be stateless and reusable. Create a single instance and reuse it throughout your application for optimal performance.
+</Info>
+
+## Creating an Engine
+
+Use the factory function to create a new engine instance:
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+// Basic engine with default settings
+const engine = createRuleEngine();
+
+// Configured engine
+const engine = createRuleEngine({
+  strict: true,
+  maxDepth: 10,
+  enableCache: true,
+  maxCacheSize: 1000,
+  enableDebug: false,
+});
+```
+
+## Configuration Options
+
+<ParamField path="strict" type="boolean" default="false">
+  Enable strict type checking for operators. When enabled, type coercion is disabled.
+</ParamField>
+
+<ParamField path="maxDepth" type="number" default="10">
+  Maximum nesting depth for rule expressions. Prevents infinite recursion.
+</ParamField>
+
+<ParamField path="enableCache" type="boolean" default="true">
+  Enable LRU caching for expression results and path resolution.
+</ParamField>
+
+<ParamField path="maxCacheSize" type="number" default="500">
+  Maximum number of cached expression results. Uses LRU eviction strategy.
+</ParamField>
+
+<ParamField path="maxOperators" type="number" default="100">
+  Maximum number of operators allowed in a single rule expression.
+</ParamField>
+
+<ParamField path="enableDebug" type="boolean" default="false">
+  Enable debug logging for rule evaluation failures.
+</ParamField>
+
+<ParamField path="allowPrototypeAccess" type="boolean" default="false">
+  Allow access to prototype properties. Always keep `false` in production for security.
+</ParamField>
+
+## Core Methods
+
+### evaluateExpr()
+
+Evaluate a rule expression against a data context:
+
+<CodeGroup>
+
+```javascript Basic Usage
+const rule = { gte: ['age', 18] };
+const context = { age: 25 };
+
+const result = engine.evaluateExpr(rule, context);
+console.log(result);
+// { success: true }
+```
+
+```javascript Complex Rule
+const rule = {
+  and: [
+    { gte: ['age', 18] },
+    { eq: ['role', 'admin'] },
+    { in: ['write', 'permissions'] }
+  ]
+};
+
+const context = {
+  age: 25,
+  role: 'admin',
+  permissions: ['read', 'write', 'delete']
+};
+
+const result = engine.evaluateExpr(rule, context);
+console.log(result.success); // true
+```
+
+```javascript Error Handling
+const rule = { gte: ['age', 18] };
+const context = { age: 16 };
+
+const result = engine.evaluateExpr(rule, context);
+
+if (!result.success) {
+  console.log('Operator:', result.operator);    // 'gte'
+  console.log('Error:', result.error);          // Error message
+  console.log('Details:', result.details);      // Additional context
+}
+```
+
+</CodeGroup>
+
+**Return Value:**
+
+```typescript
+{
+  success: boolean;         // Whether the rule passed
+  operator?: string;        // Operator that failed (if applicable)
+  error?: string;          // Error message (if failed)
+  details?: object;        // Additional context (if failed)
+  timestamp?: number;      // Timestamp of evaluation (if failed)
+}
+```
+
+### registerOperator()
+
+Register custom operators for business-specific logic:
+
+<CodeGroup>
+
+```javascript Simple Operator
+engine.registerOperator('isBusinessHours', (args, context) => {
+  const [timezone = 'UTC'] = args;
+  const now = new Date();
+  const hour = now.getUTCHours();
+  return hour >= 9 && hour < 17;
+});
+
+// Usage
+const rule = { isBusinessHours: ['America/New_York'] };
+const result = engine.evaluateExpr(rule, {});
+```
+
+```javascript Advanced Operator
+engine.registerOperator('withinBudget', (args, context, evaluateExpr, depth) => {
+  const [amountPath, budgetPath, allowOverage = false] = args;
+
+  const amount = context[amountPath];
+  const budget = context[budgetPath];
+
+  if (allowOverage) {
+    return amount <= budget * 1.1; // Allow 10% overage
+  }
+
+  return amount <= budget;
+});
+
+// Usage
+const rule = { withinBudget: ['orderTotal', 'userBudget', true] };
+const result = engine.evaluateExpr(rule, {
+  orderTotal: 1100,
+  userBudget: 1000
+});
+```
+
+```javascript With Overwrite Protection
+try {
+  // First registration succeeds
+  engine.registerOperator('customOp', (args) => true);
+
+  // Second registration fails (default behavior)
+  engine.registerOperator('customOp', (args) => false);
+} catch (error) {
+  console.log(error.message); // "Operator 'customOp' already exists"
+}
+
+// Allow overwrite
+engine.registerOperator('customOp', (args) => false, {
+  allowOverwrite: true
+});
+```
+
+</CodeGroup>
+
+**Parameters:**
+
+- `name` (string): Operator identifier
+- `handler` (function): Implementation function with signature `(args, context, evaluateExpr, depth) => boolean`
+- `options` (object): Optional configuration
+  - `allowOverwrite` (boolean): Allow replacing existing operators
+
+## Performance Methods
+
+### getMetrics()
+
+Get real-time performance metrics:
+
+```javascript
+const metrics = engine.getMetrics();
+
+console.log(metrics);
+// {
+//   evaluations: 1250,      // Total evaluations
+//   cacheHits: 987,         // Cache hits
+//   errors: 3,              // Failed evaluations
+//   totalTime: 1234.56,     // Total time (ms)
+//   avgTime: 0.99           // Average time per evaluation (ms)
+// }
+```
+
+<Info>
+Monitor these metrics in production to identify performance bottlenecks and optimize rule complexity.
+</Info>
+
+### getCacheStats()
+
+Get cache statistics for monitoring:
+
+```javascript
+const stats = engine.getCacheStats();
+
+console.log(stats);
+// {
+//   expression: {
+//     size: 342,
+//     maxSize: 1000
+//   },
+//   path: {
+//     size: 156,
+//     maxSize: 500
+//   }
+// }
+```
+
+### clearCache()
+
+Clear all caches (expression and path resolver):
+
+```javascript
+// Clear all caches
+engine.clearCache();
+
+// Useful when context data structure changes significantly
+// or for testing purposes
+```
+
+<Warning>
+Clearing the cache will temporarily impact performance as the cache is rebuilt. Use sparingly in production.
+</Warning>
+
+## Utility Methods
+
+### getOperators()
+
+Get list of all registered operators:
+
+```javascript
+const operators = engine.getOperators();
+console.log(operators);
+// ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'and', 'or', 'not', ...]
+```
+
+### getConfig()
+
+Get current engine configuration:
+
+```javascript
+const config = engine.getConfig();
+console.log(config);
+// {
+//   strict: false,
+//   maxDepth: 10,
+//   enableCache: true,
+//   maxCacheSize: 500,
+//   ...
+// }
+```
+
+## Architecture
+
+<Steps>
+  <Step title="Rule Validation">
+    The engine validates rule structure, checks depth limits, and counts operators before evaluation.
+  </Step>
+
+  <Step title="Cache Check">
+    Looks up the expression in the LRU cache using a composite key of expression + context.
+  </Step>
+
+  <Step title="Expression Evaluation">
+    Recursively evaluates operators, resolving paths and applying operator logic.
+  </Step>
+
+  <Step title="Cache Storage">
+    Successful evaluations are cached with LRU eviction when cache is full.
+  </Step>
+
+  <Step title="Metrics Update">
+    Performance metrics are updated including timing, cache hits, and errors.
+  </Step>
+</Steps>
+
+## Caching Strategy
+
+The Rule Engine uses a two-tier caching system:
+
+<CardGroup cols={2}>
+  <Card title="Expression Cache" icon="database">
+    Caches complete rule evaluation results based on expression + context hash.
+
+    - **LRU Eviction**: Oldest entries removed when cache is full
+    - **Default Size**: 500 entries
+    - **Key Strategy**: Composite of rule structure and context values
+  </Card>
+
+  <Card title="Path Resolution Cache" icon="route">
+    Caches dot-notation path lookups for nested data access.
+
+    - **LRU Eviction**: Automatic cleanup of least-used paths
+    - **Default Size**: 500 entries
+    - **Scope**: Shared across all rule evaluations
+  </Card>
+</CardGroup>
+
+### Cache Key Generation
+
+The engine creates intelligent cache keys based on:
+
+1. **Expression Structure**: JSON-stringified rule object
+2. **Context Identity**: Context ID, shape hash, or value hash
+3. **Composite Key**: `expr:{rule}:ctx:{contextId}`
+
+<Tip>
+For best cache performance, use consistent object shapes and provide explicit `id` or `_id` fields in your context objects.
+</Tip>
+
+## Security Features
+
+<AccordionGroup>
+  <Accordion title="Prototype Pollution Protection">
+    The engine blocks access to dangerous paths like `__proto__`, `constructor`, and `prototype`:
+
+    ```javascript
+    const maliciousData = { __proto__: { isAdmin: true } };
+    const result = engine.resolvePath(maliciousData, '__proto__.isAdmin');
+    // Returns: undefined (blocked)
+    ```
+  </Accordion>
+
+  <Accordion title="Depth Limiting">
+    Prevents stack overflow attacks through deeply nested rules:
+
+    ```javascript
+    const engine = createRuleEngine({ maxDepth: 5 });
+
+    // This will fail if nesting exceeds 5 levels
+    const deepRule = {
+      and: [{ and: [{ and: [{ and: [{ and: [{ eq: ['a', 1] }] }] }] }] }]
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Operator Count Limiting">
+    Prevents resource exhaustion from overly complex rules:
+
+    ```javascript
+    const engine = createRuleEngine({ maxOperators: 50 });
+
+    // Rules with more than 50 total operators will be rejected
+    ```
+  </Accordion>
+
+  <Accordion title="Function Access Prevention">
+    Functions in context data are automatically blocked:
+
+    ```javascript
+    const context = {
+      user: { name: 'John' },
+      dangerousFunc: () => { /* malicious code */ }
+    };
+
+    // Function access is prevented by PathResolver
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Reuse Engine Instances" icon="recycle">
+    Create a single engine instance and reuse it across your application for optimal caching.
+
+    ```javascript
+    // Good: Singleton pattern
+    export const ruleEngine = createRuleEngine();
+    ```
+  </Card>
+
+  <Card title="Configure Cache Size" icon="sliders">
+    Adjust cache size based on your rule complexity and data variability.
+
+    ```javascript
+    // High variability: larger cache
+    const engine = createRuleEngine({
+      maxCacheSize: 2000
+    });
+    ```
+  </Card>
+
+  <Card title="Monitor Performance" icon="chart-line">
+    Regularly check metrics to identify slow rules and optimization opportunities.
+
+    ```javascript
+    setInterval(() => {
+      const metrics = engine.getMetrics();
+      if (metrics.avgTime > 5) {
+        console.warn('Slow rules detected');
+      }
+    }, 60000);
+    ```
+  </Card>
+
+  <Card title="Handle Errors Gracefully" icon="circle-exclamation">
+    Always check the success flag and provide fallback behavior.
+
+    ```javascript
+    const result = engine.evaluateExpr(rule, context);
+
+    if (!result.success) {
+      logError(result.error);
+      return defaultBehavior();
+    }
+    ```
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Middleware Integration
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+
+function ruleMiddleware(accessRule) {
+  return (req, res, next) => {
+    const result = engine.evaluateExpr(accessRule, req.user);
+
+    if (result.success) {
+      next();
+    } else {
+      res.status(403).json({ error: 'Access denied' });
+    }
+  };
+}
+
+// Usage
+app.get('/admin/*', ruleMiddleware({ eq: ['role', 'admin'] }));
+```
+
+### Batch Evaluation
+
+```javascript
+function evaluateBatch(rules, context) {
+  const results = {};
+
+  for (const [ruleId, rule] of Object.entries(rules)) {
+    results[ruleId] = engine.evaluateExpr(rule, context);
+  }
+
+  return results;
+}
+
+// Usage
+const results = evaluateBatch({
+  isAdmin: { eq: ['role', 'admin'] },
+  isAdult: { gte: ['age', 18] },
+  hasEmail: { isNotNull: ['email'] }
+}, userData);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Stateful Engine" icon="database" href="/essentials/stateful-engine">
+    Learn about state tracking and event-driven rules
+  </Card>
+  <Card title="Path Resolver" icon="route" href="/essentials/path-resolver">
+    Understand how path resolution works
+  </Card>
+  <Card title="Operators" icon="wrench" href="/essentials/operators">
+    Explore built-in operators and create custom ones
+  </Card>
+  <Card title="Performance Guide" icon="gauge-high" href="/guides/performance">
+    Optimize rule performance
+  </Card>
+</CardGroup>

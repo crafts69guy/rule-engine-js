@@ -1,0 +1,275 @@
+---
+title: 'Stateful Rule Engine'
+description: 'Event-driven rule engine with state tracking and change detection'
+---
+
+## Overview
+
+The StatefulRuleEngine extends the base RuleEngine with state tracking capabilities, enabling you to detect changes in data over time and trigger actions based on state transitions.
+
+<Info>
+Perfect for monitoring systems, event-driven workflows, and reactive business logic.
+</Info>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="State Tracking" icon="database">
+    Maintains previous states for comparison across evaluations
+  </Card>
+
+  <Card title="Event System" icon="bell">
+    Subscribe to rule state changes with event listeners
+  </Card>
+
+  <Card title="Change Detection" icon="arrows-rotate">
+    Specialized operators for detecting value changes
+  </Card>
+
+  <Card title="History Management" icon="clock-rotate-left">
+    Optional storage of evaluation history
+  </Card>
+</CardGroup>
+
+## Creating a Stateful Engine
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: false,  // Trigger only on false → true
+  storeHistory: true,            // Keep evaluation history
+  maxHistorySize: 100,           // Limit history entries
+});
+```
+
+## Configuration Options
+
+<ParamField path="triggerOnEveryChange" type="boolean" default="false">
+  When `false`, triggers only on false → true transitions. When `true`, triggers on any state change.
+</ParamField>
+
+<ParamField path="storeHistory" type="boolean" default="false">
+  Enable storage of evaluation history for analysis and debugging.
+</ParamField>
+
+<ParamField path="maxHistorySize" type="number" default="100">
+  Maximum number of history entries to store per rule.
+</ParamField>
+
+## Event System
+
+Subscribe to rule state changes:
+
+<CodeGroup>
+
+```javascript Triggered Event
+statefulEngine.on('triggered', (event) => {
+  console.log(`Rule ${event.ruleId} was triggered!`);
+  console.log('Previous state:', event.previousState);
+  console.log('Current state:', event.currentState);
+  console.log('Context:', event.context);
+});
+```
+
+```javascript Changed Event
+statefulEngine.on('changed', (event) => {
+  console.log(`Rule ${event.ruleId} state changed`);
+  console.log('From:', event.previousState, 'To:', event.currentState);
+});
+```
+
+```javascript Evaluated Event
+statefulEngine.on('evaluated', (event) => {
+  // Fires on every evaluation
+  console.log('Evaluation count:', event.evaluationCount);
+});
+```
+
+</CodeGroup>
+
+## State Change Operators
+
+<AccordionGroup>
+  <Accordion title="changed - Detect Any Change">
+    ```javascript
+    const rule = { changed: ['user.email'] };
+
+    // First evaluation
+    statefulEngine.evaluate('email-change', rule, { user: { email: 'old@example.com' } });
+
+    // Second evaluation - triggers because email changed
+    statefulEngine.evaluate('email-change', rule, { user: { email: 'new@example.com' } });
+    ```
+  </Accordion>
+
+  <Accordion title="changedBy - Detect Numeric Change">
+    ```javascript
+    const rule = { changedBy: ['temperature', 5] };
+
+    // First evaluation
+    statefulEngine.evaluate('temp', rule, { temperature: 20 });
+
+    // Triggers when temperature changes by 5 or more
+    statefulEngine.evaluate('temp', rule, { temperature: 26 }); // true
+    ```
+  </Accordion>
+
+  <Accordion title="changedFrom - Detect Change from Value">
+    ```javascript
+    const rule = { changedFrom: ['status', 'pending'] };
+
+    // Triggers when status changes from 'pending' to anything else
+    statefulEngine.evaluate('status', rule, { status: 'pending' });
+    statefulEngine.evaluate('status', rule, { status: 'approved' }); // triggers
+    ```
+  </Accordion>
+
+  <Accordion title="changedTo - Detect Change to Value">
+    ```javascript
+    const rule = { changedTo: ['status', 'completed'] };
+
+    // Triggers when status changes to 'completed'
+    statefulEngine.evaluate('status', rule, { status: 'processing' });
+    statefulEngine.evaluate('status', rule, { status: 'completed' }); // triggers
+    ```
+  </Accordion>
+
+  <Accordion title="increased - Detect Numeric Increase">
+    ```javascript
+    const rule = { increased: ['stock'] };
+
+    // Triggers when stock quantity increases
+    statefulEngine.evaluate('stock', rule, { stock: 100 });
+    statefulEngine.evaluate('stock', rule, { stock: 150 }); // triggers
+    ```
+  </Accordion>
+
+  <Accordion title="decreased - Detect Numeric Decrease">
+    ```javascript
+    const rule = { decreased: ['balance'] };
+
+    // Triggers when balance decreases
+    statefulEngine.evaluate('balance', rule, { balance: 1000 });
+    statefulEngine.evaluate('balance', rule, { balance: 800 }); // triggers
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Real-World Example
+
+```javascript
+// Order processing workflow
+const orderRules = {
+  'payment-received': { changedTo: ['order.paymentStatus', 'paid'] },
+  'inventory-low': {
+    and: [
+      { decreased: ['product.stock'] },
+      { lte: ['product.stock', 10] }
+    ]
+  },
+  'price-drop': {
+    and: [
+      { decreased: ['product.price'] },
+      { changedBy: ['product.price', 5] }
+    ]
+  },
+};
+
+// Event handlers
+statefulEngine.on('triggered', (event) => {
+  switch (event.ruleId) {
+    case 'payment-received':
+      processOrder(event.context);
+      break;
+    case 'inventory-low':
+      reorderStock(event.context.product);
+      break;
+    case 'price-drop':
+      notifyCustomers(event.context.product);
+      break;
+  }
+});
+
+// Evaluate all rules
+const orderData = {
+  order: { paymentStatus: 'paid' },
+  product: { stock: 8, price: 95 },
+};
+
+statefulEngine.evaluateBatch(orderRules, orderData);
+```
+
+## Methods
+
+### evaluate()
+
+Evaluate a single rule with state tracking:
+
+```javascript
+const result = statefulEngine.evaluate(ruleId, rule, context);
+```
+
+### evaluateBatch()
+
+Evaluate multiple rules at once:
+
+```javascript
+const results = statefulEngine.evaluateBatch(rulesObject, context);
+```
+
+### getRuleState()
+
+Get current state of a specific rule:
+
+```javascript
+const state = statefulEngine.getRuleState(ruleId);
+```
+
+### clearRuleState()
+
+Clear state for a specific rule:
+
+```javascript
+statefulEngine.clearRuleState(ruleId);
+```
+
+### getHistory()
+
+Get evaluation history (if enabled):
+
+```javascript
+const history = statefulEngine.getHistory(ruleId);
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Meaningful IDs" icon="tag">
+    Use descriptive rule IDs that indicate the rule's purpose
+  </Card>
+
+  <Card title="Batch Evaluations" icon="layer-group">
+    Use `evaluateBatch()` for multiple related rules
+  </Card>
+
+  <Card title="Clean Up State" icon="broom">
+    Periodically clear state for inactive rules
+  </Card>
+
+  <Card title="Limit History" icon="database">
+    Set appropriate `maxHistorySize` to manage memory
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State Operators" icon="arrows-rotate" href="/operators/state">
+    Complete state change operators reference
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/stateful-rules">
+    Real-world stateful engine examples
+  </Card>
+</CardGroup>
