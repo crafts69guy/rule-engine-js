@@ -1,0 +1,372 @@
+---
+title: 'Security Guide'
+description: 'Keep your rules safe from vulnerabilities'
+icon: 'shield'
+---
+
+## Built-in Protection
+
+Rule Engine JS has security features enabled by default:
+
+<CardGroup cols={2}>
+  <Card title="Prototype Protection" icon="shield-halved">
+    Blocks __proto__ and constructor access
+  </Card>
+  <Card title="Function Blocking" icon="ban">
+    Functions cannot be accessed via paths
+  </Card>
+  <Card title="Depth Limits" icon="layer-group">
+    Prevents infinite recursion attacks
+  </Card>
+  <Card title="Type Validation" icon="check">
+    Validates operator arguments
+  </Card>
+</CardGroup>
+
+---
+
+## Prototype Pollution
+
+### What It Is
+
+Malicious path access that modifies object prototypes.
+
+```javascript
+// ❌ DANGEROUS - Don't allow this
+const maliciousPath = '__proto__.isAdmin';
+const maliciousData = {
+  '__proto__': { isAdmin: true }
+};
+```
+
+### How We Block It
+
+```javascript
+// ✅ BLOCKED automatically
+engine.resolvePath(data, '__proto__');
+// Returns: undefined (blocked)
+
+engine.resolvePath(data, 'constructor');
+// Returns: undefined (blocked)
+
+engine.resolvePath(data, '__proto__.polluted');
+// Returns: undefined (blocked)
+```
+
+### Configuration
+
+```javascript
+const engine = createRuleEngine({
+  allowPrototypeAccess: false  // Default: false (KEEP IT!)
+});
+```
+
+<Warning>
+**Never set `allowPrototypeAccess: true` in production!** It opens critical security vulnerabilities.
+</Warning>
+
+---
+
+## Input Validation
+
+Always validate user input before using in rules.
+
+### Bad vs Good
+
+<Tabs>
+  <Tab title="❌ Bad - No Validation">
+    ```javascript
+    // Direct user input (DANGEROUS!)
+    app.post('/check', (req, res) => {
+      const rule = req.body.rule;  // Unvalidated!
+      const result = engine.evaluateExpr(rule, data);
+      res.json(result);
+    });
+    ```
+  </Tab>
+
+  <Tab title="✅ Good - Validated">
+    ```javascript
+    // Validate before use
+    app.post('/check', (req, res) => {
+      const rule = req.body.rule;
+
+      // 1. Validate structure
+      if (!rule || typeof rule !== 'object') {
+        return res.status(400).json({ error: 'Invalid rule' });
+      }
+
+      // 2. Whitelist operators
+      const allowedOps = ['eq', 'neq', 'gt', 'gte', 'and', 'or'];
+      if (!isValidRule(rule, allowedOps)) {
+        return res.status(400).json({ error: 'Invalid operators' });
+      }
+
+      // 3. Evaluate safely
+      const result = engine.evaluateExpr(rule, data);
+      res.json(result);
+    });
+
+    function isValidRule(rule, allowedOps) {
+      const ops = Object.keys(rule);
+      return ops.every(op => allowedOps.includes(op));
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Whitelist Operators
+
+Only allow specific operators in user-defined rules.
+
+```javascript
+const SAFE_OPERATORS = [
+  'eq', 'neq', 'gt', 'gte', 'lt', 'lte',
+  'and', 'or', 'not',
+  'in', 'notIn',
+  'contains', 'startsWith', 'endsWith'
+];
+
+function validateRule(rule) {
+  const operators = extractOperators(rule);
+  return operators.every(op => SAFE_OPERATORS.includes(op));
+}
+
+function extractOperators(rule) {
+  if (typeof rule !== 'object') return [];
+
+  const ops = Object.keys(rule);
+  const nested = Object.values(rule)
+    .filter(v => typeof v === 'object')
+    .flatMap(extractOperators);
+
+  return [...ops, ...nested];
+}
+
+// Usage
+if (!validateRule(userRule)) {
+  throw new Error('Rule contains disallowed operators');
+}
+```
+
+---
+
+## Whitelist Paths
+
+Restrict which data paths can be accessed.
+
+```javascript
+const ALLOWED_PATHS = [
+  'user.name',
+  'user.age',
+  'user.email',
+  'order.total',
+  'order.status'
+];
+
+function validatePath(path) {
+  return ALLOWED_PATHS.includes(path);
+}
+
+function validateRulePaths(rule) {
+  const paths = extractPaths(rule);
+  return paths.every(validatePath);
+}
+
+function extractPaths(rule) {
+  if (Array.isArray(rule)) {
+    return rule
+      .filter(item => typeof item === 'string')
+      .filter(item => item.includes('.'));
+  }
+
+  return Object.values(rule).flatMap(extractPaths);
+}
+```
+
+---
+
+## Rate Limiting
+
+Prevent DoS via excessive evaluations.
+
+```javascript
+const rateLimit = require('express-rate-limit');
+
+const ruleLimiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 100,              // 100 requests per minute
+  message: 'Too many rule evaluations'
+});
+
+app.post('/evaluate', ruleLimiter, (req, res) => {
+  const result = engine.evaluateExpr(rule, data);
+  res.json(result);
+});
+```
+
+---
+
+## Depth Limits
+
+Prevent deeply nested rules (DoS).
+
+```javascript
+const engine = createRuleEngine({
+  maxDepth: 10,        // Default: 10
+  maxOperators: 100    // Default: 100
+});
+
+// This will fail
+const deepRule = {
+  and: [{ and: [{ and: [/* ... 20 levels deep ... */] }] }]
+};
+
+engine.evaluateExpr(deepRule, data);
+// Error: "Rule exceeds maximum depth of 10"
+```
+
+---
+
+## Sensitive Data
+
+Don't expose sensitive data in error messages.
+
+<Tabs>
+  <Tab title="❌ Bad">
+    ```javascript
+    // Exposes sensitive data
+    try {
+      engine.evaluateExpr(rule, sensitiveData);
+    } catch (error) {
+      res.json({ error: error.message, data: sensitiveData });
+    }
+    ```
+  </Tab>
+
+  <Tab title="✅ Good">
+    ```javascript
+    // Generic error only
+    try {
+      engine.evaluateExpr(rule, data);
+    } catch (error) {
+      res.status(500).json({ error: 'Evaluation failed' });
+      logger.error('Rule error:', error);  // Log privately
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Regex Safety
+
+Prevent ReDoS (Regular Expression Denial of Service).
+
+```javascript
+// ❌ Dangerous regex patterns
+const unsafe = [
+  '(a+)+b',           // Catastrophic backtracking
+  '(a|a)*b',
+  '(a*)*b'
+];
+
+// ✅ Safe regex patterns
+const safe = [
+  '^[a-z]+@[a-z]+\\.[a-z]{2,}$',  // Simple patterns
+  '^\\d{3}-\\d{3}-\\d{4}$'
+];
+
+// Validate regex before use
+function isSafeRegex(pattern) {
+  // Check for dangerous patterns
+  const dangerous = [/\(\w\+\)\+/, /\(\w\*\)\*/];
+  return !dangerous.some(d => d.test(pattern));
+}
+```
+
+---
+
+## Complete Security Checklist
+
+<AccordionGroup>
+  <Accordion title="1. Prototype Protection">
+    ```javascript
+    ✅ allowPrototypeAccess: false (default)
+    ✅ Never override in production
+    ```
+  </Accordion>
+
+  <Accordion title="2. Input Validation">
+    ```javascript
+    ✅ Validate rule structure
+    ✅ Whitelist operators
+    ✅ Whitelist paths
+    ✅ Sanitize user input
+    ```
+  </Accordion>
+
+  <Accordion title="3. Depth Limits">
+    ```javascript
+    ✅ maxDepth: 10 (or lower)
+    ✅ maxOperators: 100 (or lower)
+    ```
+  </Accordion>
+
+  <Accordion title="4. Rate Limiting">
+    ```javascript
+    ✅ Limit requests per IP
+    ✅ Limit evaluations per user
+    ✅ Monitor for abuse
+    ```
+  </Accordion>
+
+  <Accordion title="5. Error Handling">
+    ```javascript
+    ✅ Generic error messages
+    ✅ Log errors privately
+    ✅ Don't expose sensitive data
+    ```
+  </Accordion>
+
+  <Accordion title="6. Regex Validation">
+    ```javascript
+    ✅ Block dangerous patterns
+    ✅ Timeout regex matching
+    ✅ Test patterns before use
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Secure Configuration
+
+```javascript
+const engine = createRuleEngine({
+  // Security
+  allowPrototypeAccess: false,  // Never true!
+  strict: true,                 // Prevent type coercion bugs
+  maxDepth: 10,                 // Limit nesting
+  maxOperators: 100,            // Limit complexity
+
+  // Performance
+  enableCache: true,
+  maxCacheSize: 1000
+});
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine API" icon="gear" href="/api-reference/rule-engine">
+    Configuration options
+  </Card>
+  <Card title="Performance" icon="gauge-high" href="/guides/performance">
+    Performance best practices
+  </Card>
+</CardGroup>

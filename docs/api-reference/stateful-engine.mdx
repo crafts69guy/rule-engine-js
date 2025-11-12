@@ -1,0 +1,433 @@
+---
+title: 'StatefulRuleEngine API'
+description: 'Event-driven rule engine with state tracking'
+icon: 'database'
+---
+
+## Constructor
+
+Create a stateful engine that tracks state changes and emits events.
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine, options);
+```
+
+### Parameters
+
+<ParamField path="baseEngine" type="RuleEngine" required>
+  Base rule engine instance
+</ParamField>
+
+<ParamField path="options" type="object" optional>
+  <Expandable title="properties">
+    <ParamField path="triggerOnEveryChange" type="boolean" default="false">
+      Trigger on every state change (default: only false → true)
+    </ParamField>
+    <ParamField path="storeHistory" type="boolean" default="false">
+      Store evaluation history
+    </ParamField>
+    <ParamField path="maxHistorySize" type="number" default="100">
+      Maximum history entries
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+---
+
+## evaluate()
+
+Evaluate rule with state tracking and event emission.
+
+```javascript
+const result = statefulEngine.evaluate(ruleId, rule, context, options);
+```
+
+### Parameters
+
+<ParamField path="ruleId" type="string" required>
+  Unique identifier for this rule
+</ParamField>
+
+<ParamField path="rule" type="object" required>
+  Rule expression
+</ParamField>
+
+<ParamField path="context" type="object" required>
+  Current data context
+</ParamField>
+
+<ParamField path="options" type="object" optional>
+  Evaluation options
+</ParamField>
+
+### Returns
+
+```typescript
+{
+  success: boolean;        // Rule passed/failed
+  triggered: boolean;      // Whether event was triggered
+  hasChangeOperator: boolean; // Rule contains change operators
+  stateChange: string | null;  // 'triggered', 'untriggered', null
+  value?: any;            // Evaluation result
+  error?: string;         // Error if failed
+}
+```
+
+### Example
+
+```javascript
+const rule = {
+  and: [
+    { gte: ['temperature', 25] },
+    { increased: ['temperature'] }
+  ]
+};
+
+// First evaluation
+statefulEngine.evaluate('temp-rule', rule, { temperature: 20 });
+// { success: false, triggered: false }
+
+// Second evaluation
+statefulEngine.evaluate('temp-rule', rule, { temperature: 26 });
+// { success: true, triggered: true }
+// Emits 'triggered' event
+```
+
+---
+
+## evaluateBatch()
+
+Evaluate multiple rules at once.
+
+```javascript
+const results = statefulEngine.evaluateBatch(rules, context, options);
+```
+
+### Parameters
+
+<ParamField path="rules" type="object" required>
+  Object mapping rule IDs to rule expressions
+</ParamField>
+
+<ParamField path="context" type="object" required>
+  Data context
+</ParamField>
+
+<ParamField path="options" type="object" optional>
+  Evaluation options
+</ParamField>
+
+### Returns
+
+Object with results for each rule.
+
+### Example
+
+```javascript
+const rules = {
+  'temp-high': { gte: ['temperature', 30] },
+  'temp-changed': { changed: ['temperature'] },
+  'temp-increased': { increased: ['temperature'] }
+};
+
+const results = statefulEngine.evaluateBatch(rules, { temperature: 28 });
+// {
+//   'temp-high': { success: false, triggered: false },
+//   'temp-changed': { success: true, triggered: true },
+//   'temp-increased': { success: true, triggered: true }
+// }
+```
+
+---
+
+## Event System
+
+### on()
+
+Register event listener.
+
+```javascript
+statefulEngine.on(event, callback);
+```
+
+**Events:**
+- `'triggered'` - Rule changed from false → true
+- `'untriggered'` - Rule changed from true → false
+- `'changed'` - Any state change
+- `'evaluated'` - Every evaluation
+
+### Example
+
+```javascript
+statefulEngine.on('triggered', (event) => {
+  console.log(`Rule ${event.ruleId} triggered!`);
+  console.log('Current:', event.context);
+  console.log('Previous:', event.previousContext);
+});
+
+statefulEngine.on('changed', (event) => {
+  console.log(`Rule ${event.ruleId} state changed`);
+});
+
+statefulEngine.on('evaluated', (event) => {
+  console.log(`Rule ${event.ruleId} evaluated:`, event.result);
+});
+```
+
+### Event Data
+
+```typescript
+{
+  ruleId: string;
+  rule: object;
+  context: object;
+  previousContext: object | null;
+  result: object;
+  previousResult: object | null;
+  triggered: boolean;
+  timestamp: string; // ISO 8601
+}
+```
+
+### off()
+
+Remove event listener.
+
+```javascript
+const handler = (event) => { /* ... */ };
+
+statefulEngine.on('triggered', handler);
+statefulEngine.off('triggered', handler);
+```
+
+---
+
+## getHistory()
+
+Get evaluation history for a rule.
+
+```javascript
+const history = statefulEngine.getHistory(ruleId);
+```
+
+### Parameters
+
+<ParamField path="ruleId" type="string" required>
+  Rule ID to get history for
+</ParamField>
+
+### Returns
+
+Array of evaluation events (if `storeHistory: true`).
+
+### Example
+
+```javascript
+// Enable history
+const engine = new StatefulRuleEngine(baseEngine, {
+  storeHistory: true,
+  maxHistorySize: 50
+});
+
+// After some evaluations
+const history = engine.getHistory('temp-rule');
+console.log(`${history.length} evaluations found`);
+```
+
+---
+
+## clearState()
+
+Clear stored state.
+
+```javascript
+// Clear specific rule
+statefulEngine.clearState('temp-rule');
+
+// Clear all rules
+statefulEngine.clearState();
+```
+
+---
+
+## Complete Example
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+// Create engines
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: false,
+  storeHistory: true,
+  maxHistorySize: 100
+});
+
+// Setup event listeners
+statefulEngine.on('triggered', (event) => {
+  console.log(`🔥 Alert: ${event.ruleId}`);
+  sendAlert(event.context);
+});
+
+statefulEngine.on('changed', (event) => {
+  console.log(`📊 State changed: ${event.ruleId}`);
+  logChange(event);
+});
+
+// Define rules
+const rules = {
+  'temp-critical': {
+    and: [
+      { gte: ['temperature', 30] },
+      { increased: ['temperature'] }
+    ]
+  },
+  'inventory-low': {
+    and: [
+      { decreased: ['stock'] },
+      { lte: ['stock', 10] }
+    ]
+  },
+  'price-drop': {
+    and: [
+      { decreased: ['price'] },
+      { changedBy: ['price', 5] }
+    ]
+  }
+};
+
+// Evaluate batch
+const results = statefulEngine.evaluateBatch(rules, {
+  temperature: 31,
+  stock: 8,
+  price: 45
+});
+
+// Check history
+const tempHistory = statefulEngine.getHistory('temp-critical');
+console.log(`History: ${tempHistory.length} entries`);
+
+// Clear state when needed
+statefulEngine.clearState('temp-critical');
+```
+
+---
+
+## Triggering Modes
+
+### Default Mode (false → true)
+
+```javascript
+const engine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: false // default
+});
+
+// Only triggers when state changes from false to true
+```
+
+### Every Change Mode
+
+```javascript
+const engine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: true
+});
+
+// Triggers on any state change (true ↔ false)
+```
+
+---
+
+## Use Cases
+
+<Tabs>
+  <Tab title="Temperature Monitoring">
+    ```javascript
+    statefulEngine.on('triggered', (event) => {
+      if (event.ruleId === 'temp-high') {
+        sendAlert('Temperature exceeded threshold');
+      }
+    });
+
+    const rule = {
+      and: [
+        { gte: ['temperature', 30] },
+        { increased: ['temperature'] }
+      ]
+    };
+
+    statefulEngine.evaluate('temp-high', rule, sensorData);
+    ```
+  </Tab>
+
+  <Tab title="Order Status Tracking">
+    ```javascript
+    statefulEngine.on('triggered', (event) => {
+      if (event.ruleId === 'order-completed') {
+        notifyCustomer(event.context.orderId);
+      }
+    });
+
+    const rule = {
+      changedTo: ['order.status', 'completed']
+    };
+    ```
+  </Tab>
+
+  <Tab title="Price Drop Alerts">
+    ```javascript
+    const rule = {
+      and: [
+        { decreased: ['price'] },
+        { changedBy: ['price', 10] }
+      ]
+    };
+
+    statefulEngine.on('triggered', (event) => {
+      sendPriceAlert(event.context);
+    });
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## TypeScript
+
+```typescript
+import { StatefulRuleEngine } from 'rule-engine-js';
+import type { StatefulEngineOptions, EventData } from 'rule-engine-js';
+
+const options: StatefulEngineOptions = {
+  triggerOnEveryChange: false,
+  storeHistory: true,
+  maxHistorySize: 100
+};
+
+const engine = new StatefulRuleEngine(baseEngine, options);
+
+engine.on('triggered', (event: EventData) => {
+  console.log(event.ruleId);
+});
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine" icon="gear" href="/api-reference/rule-engine">
+    Base rule engine API
+  </Card>
+  <Card title="State Operators" icon="chart-line" href="/operators/state">
+    changed, changedTo, increased, etc.
+  </Card>
+  <Card title="Stateful Guide" icon="book" href="/essentials/stateful-engine">
+    Detailed stateful engine guide
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/stateful-rules">
+    Stateful examples
+  </Card>
+</CardGroup>

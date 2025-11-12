@@ -1,0 +1,465 @@
+---
+title: 'Basic Rules'
+description: 'Simple validation and access control examples'
+icon: 'play'
+---
+
+## Quick Examples
+
+<CardGroup cols={2}>
+  <Card title="Age Verification" icon="id-card">
+    Simple numeric comparison
+  </Card>
+  <Card title="Form Validation" icon="list-check">
+    Multi-field validation
+  </Card>
+  <Card title="Access Control" icon="lock">
+    Role-based permissions
+  </Card>
+  <Card title="Status Checks" icon="circle-check">
+    String matching
+  </Card>
+</CardGroup>
+
+---
+
+## Age Verification
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+
+// Simple age check
+const rule = { gte: ['age', 18] };
+
+console.log(engine.evaluateExpr(rule, { age: 25 }));
+// { success: true }
+
+console.log(engine.evaluateExpr(rule, { age: 16 }));
+// { success: false }
+```
+
+### With Helpers
+
+```javascript
+import { createRuleHelpers } from 'rule-engine-js';
+
+const rules = createRuleHelpers();
+
+const ageCheck = rules.gte('age', 18);
+
+engine.evaluateExpr(ageCheck, { age: 20 });
+// { success: true }
+```
+
+---
+
+## Form Validation
+
+Validate multiple fields at once.
+
+```javascript
+const formRule = {
+  and: [
+    { isNotNull: ['email'] },
+    { isNotNull: ['password'] },
+    { regex: ['email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'] },
+    { gte: ['password.length', 8] }
+  ]
+};
+
+// Valid form
+const validForm = {
+  email: 'user@example.com',
+  password: 'securepass123'
+};
+
+engine.evaluateExpr(formRule, validForm);
+// { success: true }
+
+// Invalid - missing email
+const invalidForm = {
+  password: 'securepass123'
+};
+
+engine.evaluateExpr(formRule, invalidForm);
+// { success: false }
+```
+
+### Using Helpers
+
+```javascript
+const formValidation = rules.and(
+  rules.isNotNull('email'),
+  rules.isNotNull('password'),
+  rules.regex('email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'),
+  rules.gte('password.length', 8)
+);
+```
+
+---
+
+## Access Control
+
+Role-based permissions.
+
+```javascript
+// Admin only
+const adminRule = { eq: ['role', 'admin'] };
+
+engine.evaluateExpr(adminRule, { role: 'admin' });
+// { success: true }
+
+// Admin or moderator
+const moderatorRule = {
+  in: ['role', ['admin', 'moderator']]
+};
+
+engine.evaluateExpr(moderatorRule, { role: 'moderator' });
+// { success: true }
+
+// Multiple conditions
+const writeAccessRule = {
+  and: [
+    { eq: ['status', 'active'] },
+    { in: ['role', ['admin', 'editor']] },
+    { gte: ['accountAge', 30] }
+  ]
+};
+
+const user = {
+  status: 'active',
+  role: 'editor',
+  accountAge: 45
+};
+
+engine.evaluateExpr(writeAccessRule, user);
+// { success: true }
+```
+
+---
+
+## Status Checks
+
+```javascript
+// Active users only
+const activeRule = { eq: ['status', 'active'] };
+
+// Exclude banned users
+const notBannedRule = {
+  notIn: ['status', ['banned', 'suspended']]
+};
+
+// Verified users
+const verifiedRule = {
+  and: [
+    { eq: ['verified', true] },
+    { eq: ['status', 'active'] }
+  ]
+};
+
+const user = {
+  verified: true,
+  status: 'active'
+};
+
+engine.evaluateExpr(verifiedRule, user);
+// { success: true }
+```
+
+---
+
+## Email Validation
+
+```javascript
+const emailRule = {
+  regex: ['email', '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$']
+};
+
+engine.evaluateExpr(emailRule, { email: 'user@example.com' });
+// { success: true }
+
+engine.evaluateExpr(emailRule, { email: 'invalid-email' });
+// { success: false }
+```
+
+### Domain Whitelist
+
+```javascript
+const companyEmailRule = {
+  and: [
+    { regex: ['email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'] },
+    { endsWith: ['email', '@company.com'] }
+  ]
+};
+
+engine.evaluateExpr(companyEmailRule, { email: 'john@company.com' });
+// { success: true }
+
+engine.evaluateExpr(companyEmailRule, { email: 'john@gmail.com' });
+// { success: false }
+```
+
+---
+
+## Price Validation
+
+```javascript
+const priceRule = {
+  and: [
+    { gte: ['price', 0] },
+    { lte: ['price', 10000] },
+    { isNotNull: ['currency'] }
+  ]
+};
+
+const product = {
+  price: 49.99,
+  currency: 'USD'
+};
+
+engine.evaluateExpr(priceRule, product);
+// { success: true }
+```
+
+### Discount Validation
+
+```javascript
+const discountRule = {
+  and: [
+    { between: ['discount', [0, 100]] },
+    { lt: ['discount', 'maxDiscount'] }
+  ]
+};
+
+const offer = {
+  discount: 20,
+  maxDiscount: 50
+};
+
+engine.evaluateExpr(discountRule, offer);
+// { success: true }
+```
+
+---
+
+## Array Membership
+
+```javascript
+// Check if user has specific permission
+const permissionRule = {
+  in: ['write', 'permissions']
+};
+
+const user = {
+  permissions: ['read', 'write', 'delete']
+};
+
+engine.evaluateExpr(permissionRule, user);
+// { success: true }
+
+// Check if user lacks permission
+const noDeleteRule = {
+  notIn: ['delete', 'permissions']
+};
+
+const limitedUser = {
+  permissions: ['read']
+};
+
+engine.evaluateExpr(noDeleteRule, limitedUser);
+// { success: true }
+```
+
+---
+
+## String Operations
+
+```javascript
+// Search in text
+const searchRule = {
+  contains: ['description', 'urgent']
+};
+
+engine.evaluateExpr(searchRule, {
+  description: 'This is an urgent request'
+});
+// { success: true }
+
+// Filename validation
+const imageRule = {
+  or: [
+    { endsWith: ['filename', '.jpg'] },
+    { endsWith: ['filename', '.png'] },
+    { endsWith: ['filename', '.gif'] }
+  ]
+};
+
+engine.evaluateExpr(imageRule, { filename: 'photo.jpg' });
+// { success: true }
+
+// Prefix check
+const adminUserRule = {
+  startsWith: ['username', 'admin_']
+};
+
+engine.evaluateExpr(adminUserRule, { username: 'admin_john' });
+// { success: true }
+```
+
+---
+
+## Null Checks
+
+```javascript
+// Optional field
+const optionalFieldRule = {
+  or: [
+    { isNull: ['middleName'] },
+    { isNotNull: ['middleName'] }
+  ]
+};
+// Always passes
+
+// Required field
+const requiredFieldRule = {
+  isNotNull: ['firstName']
+};
+
+engine.evaluateExpr(requiredFieldRule, { firstName: 'John' });
+// { success: true }
+
+engine.evaluateExpr(requiredFieldRule, {});
+// { success: false }
+```
+
+---
+
+## Combining Rules
+
+```javascript
+// Premium user check
+const premiumRule = {
+  and: [
+    { eq: ['subscription', 'premium'] },
+    { eq: ['status', 'active'] },
+    { gte: ['accountAge', 0] }
+  ]
+};
+
+// Trial user check
+const trialRule = {
+  and: [
+    { eq: ['subscription', 'trial'] },
+    { lte: ['trialDaysLeft', 30] },
+    { gte: ['trialDaysLeft', 0] }
+  ]
+};
+
+// Either premium or trial
+const accessRule = {
+  or: [premiumRule, trialRule]
+};
+
+const user = {
+  subscription: 'premium',
+  status: 'active',
+  accountAge: 120
+};
+
+engine.evaluateExpr(accessRule, user);
+// { success: true }
+```
+
+---
+
+## Complete Example
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+// User registration validation
+const registrationRule = rules.and(
+  rules.isNotNull('username'),
+  rules.isNotNull('email'),
+  rules.isNotNull('password'),
+  rules.gte('username.length', 3),
+  rules.lte('username.length', 20),
+  rules.regex('email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'),
+  rules.gte('password.length', 8),
+  rules.gte('age', 13)
+);
+
+// Test with valid data
+const validUser = {
+  username: 'johndoe',
+  email: 'john@example.com',
+  password: 'securepass123',
+  age: 25
+};
+
+const result = engine.evaluateExpr(registrationRule, validUser);
+console.log(result);
+// { success: true }
+
+// Test with invalid data
+const invalidUser = {
+  username: 'ab', // Too short
+  email: 'invalid-email',
+  password: '123',
+  age: 10
+};
+
+const result2 = engine.evaluateExpr(registrationRule, invalidUser);
+console.log(result2);
+// { success: false }
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Start Simple">
+    Begin with basic comparisons, add complexity only when needed.
+  </Accordion>
+
+  <Accordion title="2. Use Helpers">
+    Rule helpers make code more readable and maintainable.
+  </Accordion>
+
+  <Accordion title="3. Validate Early">
+    Put simple checks first to fail fast.
+  </Accordion>
+
+  <Accordion title="4. Reuse Rules">
+    Store common rules as constants.
+  </Accordion>
+
+  <Accordion title="5. Test Both Paths">
+    Always test both success and failure cases.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Operators" icon="list" href="/operators/overview">
+    All available operators
+  </Card>
+  <Card title="Rule Helpers" icon="wrench" href="/api-reference/rule-helpers">
+    Fluent API reference
+  </Card>
+  <Card title="Stateful Rules" icon="bolt" href="/examples/stateful-rules">
+    State change detection
+  </Card>
+  <Card title="Complex Validation" icon="shield" href="/examples/complex-validation">
+    Multi-step validation
+  </Card>
+</CardGroup>

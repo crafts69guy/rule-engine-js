@@ -1,0 +1,161 @@
+---
+title: 'API Reference'
+description: 'Complete API documentation for Rule Engine JS'
+icon: 'code'
+---
+
+## Overview
+
+Rule Engine JS provides a simple, powerful API for evaluating business rules. This section documents all public APIs.
+
+## Core APIs
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine" icon="gear" href="/api-reference/rule-engine">
+    Core evaluation engine with caching and performance optimization
+  </Card>
+  <Card title="StatefulRuleEngine" icon="database" href="/api-reference/stateful-engine">
+    Event-driven engine with state tracking and history
+  </Card>
+  <Card title="PathResolver" icon="sitemap" href="/api-reference/path-resolver">
+    Safe path resolution with security features
+  </Card>
+  <Card title="Rule Helpers" icon="wrench" href="/api-reference/rule-helpers">
+    Fluent API for building rules programmatically
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+// Create engine
+const engine = createRuleEngine();
+
+// Build rules with helpers
+const rules = createRuleHelpers();
+const rule = rules.and(
+  rules.gte('age', 18),
+  rules.eq('role', 'admin')
+);
+
+// Evaluate
+const result = engine.evaluateExpr(rule, { age: 25, role: 'admin' });
+console.log(result.success); // true
+```
+
+## Import Paths
+
+### ES Modules
+
+```javascript
+import {
+  createRuleEngine,
+  StatefulRuleEngine,
+  createRuleHelpers
+} from 'rule-engine-js';
+```
+
+### CommonJS
+
+```javascript
+const {
+  createRuleEngine,
+  StatefulRuleEngine,
+  createRuleHelpers
+} = require('rule-engine-js');
+```
+
+### TypeScript
+
+```typescript
+import type { RuleEngine, RuleExpression } from 'rule-engine-js';
+
+const engine: RuleEngine = createRuleEngine();
+const rule: RuleExpression = { gte: ['age', 18] };
+```
+
+## API Categories
+
+### Engine Management
+
+- `createRuleEngine(config?)` - Create rule engine instance
+- `engine.evaluateExpr(rule, context)` - Evaluate rule
+- `engine.registerOperator(name, fn)` - Add custom operator
+- `engine.getMetrics()` - Get performance metrics
+
+### State Management
+
+- `new StatefulRuleEngine(engine, options?)` - Create stateful engine
+- `statefulEngine.evaluate(id, rule, context)` - Evaluate with state
+- `statefulEngine.evaluateBatch(rules, context)` - Batch evaluation
+- `statefulEngine.on(event, handler)` - Event listeners
+
+### Rule Building
+
+- `createRuleHelpers()` - Create helper factory
+- `rules.eq(field, value)` - Equality check
+- `rules.and(...conditions)` - Combine conditions
+- `rules.validation.email(field)` - Built-in validators
+
+### Utilities
+
+- `pathResolver.resolve(context, path)` - Resolve path
+- `pathResolver.resolveValueOrLiteral(context, value)` - Resolve or use literal
+
+## Type Definitions
+
+All APIs have TypeScript definitions:
+
+```typescript
+// Engine configuration
+interface EngineConfig {
+  strict?: boolean;
+  maxDepth?: number;
+  enableCache?: boolean;
+  maxCacheSize?: number;
+}
+
+// Evaluation result
+interface EvaluationResult {
+  success: boolean;
+  value?: any;
+  error?: string;
+}
+
+// Rule expression
+type RuleExpression = Record<string, any>;
+```
+
+## Error Handling
+
+All APIs throw or return structured errors:
+
+```javascript
+try {
+  const result = engine.evaluateExpr(rule, context);
+  if (!result.success) {
+    console.error('Rule failed:', result.error);
+  }
+} catch (error) {
+  console.error('Evaluation error:', error.message);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine" icon="gear" href="/api-reference/rule-engine">
+    Learn the core engine API
+  </Card>
+  <Card title="Rule Helpers" icon="wrench" href="/api-reference/rule-helpers">
+    Build rules with fluent API
+  </Card>
+  <Card title="Operators" icon="list" href="/operators/overview">
+    See all available operators
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-rules">
+    View practical examples
+  </Card>
+</CardGroup>

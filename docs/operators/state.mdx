@@ -1,0 +1,402 @@
+---
+title: 'State Change Operators'
+description: 'Operators for detecting value changes and transitions'
+icon: 'chart-line'
+---
+
+## Overview
+
+State change operators detect changes between evaluations. **Requires `StatefulRuleEngine`** or manual `_previous` context.
+
+<CardGroup cols={3}>
+  <Card title="changed" icon="shuffle">
+    Any value change
+  </Card>
+  <Card title="changedBy" icon="arrows-up-down">
+    Change by threshold
+  </Card>
+  <Card title="changedFrom" icon="arrow-right-from-bracket">
+    Changed from value
+  </Card>
+  <Card title="changedTo" icon="arrow-right-to-bracket">
+    Changed to value
+  </Card>
+  <Card title="increased" icon="arrow-trend-up">
+    Numeric increase
+  </Card>
+  <Card title="decreased" icon="arrow-trend-down">
+    Numeric decrease
+  </Card>
+</CardGroup>
+
+## Requirements
+
+<Warning>
+  **StatefulRuleEngine Required**: These operators need previous state. Use `StatefulRuleEngine` or pass `_previous` context manually.
+</Warning>
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+// Create stateful engine
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine);
+
+// Use state change operators
+const rule = { changed: ['temperature'] };
+statefulEngine.evaluate('temp-rule', rule, { temperature: 25 });
+```
+
+**Source:** `src/operators/state.js` | **Tests:** `tests/unit/operators/state.test.js`
+
+## Operators
+
+### `changed` - Any Change
+
+Detects any value change.
+
+```javascript
+{ changed: ['fieldPath'] }
+```
+
+**Example:**
+
+```javascript
+// First evaluation
+statefulEngine.evaluate('rule1', { changed: ['status'] }, { status: 'pending' });
+// Result: { success: false } - no previous state
+
+// Second evaluation
+statefulEngine.evaluate('rule1', { changed: ['status'] }, { status: 'active' });
+// Result: { success: true } - "pending" → "active"
+
+// Third evaluation (same value)
+statefulEngine.evaluate('rule1', { changed: ['status'] }, { status: 'active' });
+// Result: { success: false } - no change
+```
+
+### `changedBy` - Threshold Change
+
+Detects numeric change by minimum amount (absolute value).
+
+```javascript
+{ changedBy: ['fieldPath', threshold] }
+```
+
+**Example:**
+
+```javascript
+// Temperature changed by at least 5 degrees
+const rule = { changedBy: ['temperature', 5] };
+
+// Previous: 20, Current: 23 → change = 3
+statefulEngine.evaluate('temp', rule, { temperature: 23 });
+// Result: { success: false } - changed by 3 (< 5)
+
+// Previous: 23, Current: 29 → change = 6
+statefulEngine.evaluate('temp', rule, { temperature: 29 });
+// Result: { success: true } - changed by 6 (≥ 5)
+```
+
+### `changedFrom` - From Specific Value
+
+Detects transition from a specific value.
+
+```javascript
+{ changedFrom: ['fieldPath', fromValue] }
+```
+
+**Example:**
+
+```javascript
+// Detect order leaving "pending" status
+const rule = { changedFrom: ['order.status', 'pending'] };
+
+// Previous: "pending", Current: "processing"
+statefulEngine.evaluate('order', rule, { order: { status: 'processing' } });
+// Result: { success: true }
+
+// Previous: "processing", Current: "shipped"
+statefulEngine.evaluate('order', rule, { order: { status: 'shipped' } });
+// Result: { success: false } - didn't change FROM pending
+```
+
+### `changedTo` - To Specific Value
+
+Detects transition to a specific value.
+
+```javascript
+{ changedTo: ['fieldPath', toValue] }
+```
+
+**Example:**
+
+```javascript
+// Detect order completion
+const rule = { changedTo: ['order.status', 'completed'] };
+
+// Previous: "processing", Current: "completed"
+statefulEngine.evaluate('order', rule, { order: { status: 'completed' } });
+// Result: { success: true }
+
+// Previous: "completed", Current: "completed"
+statefulEngine.evaluate('order', rule, { order: { status: 'completed' } });
+// Result: { success: false } - already was completed
+```
+
+### `increased` - Numeric Increase
+
+Detects any numeric increase.
+
+```javascript
+{ increased: ['fieldPath'] }
+```
+
+**Example:**
+
+```javascript
+const rule = { increased: ['score'] };
+
+// Previous: 85, Current: 90
+statefulEngine.evaluate('score', rule, { score: 90 });
+// Result: { success: true }
+
+// Previous: 90, Current: 90
+statefulEngine.evaluate('score', rule, { score: 90 });
+// Result: { success: false } - no change
+
+// Previous: 90, Current: 85
+statefulEngine.evaluate('score', rule, { score: 85 });
+// Result: { success: false } - decreased, not increased
+```
+
+### `decreased` - Numeric Decrease
+
+Detects any numeric decrease.
+
+```javascript
+{ decreased: ['fieldPath'] }
+```
+
+**Example:**
+
+```javascript
+const rule = { decreased: ['stock'] };
+
+// Previous: 100, Current: 95
+statefulEngine.evaluate('inventory', rule, { stock: 95 });
+// Result: { success: true }
+
+// Previous: 95, Current: 95
+statefulEngine.evaluate('inventory', rule, { stock: 95 });
+// Result: { success: false } - no change
+```
+
+## Common Use Cases
+
+<Tabs>
+  <Tab title="Temperature Monitoring">
+    ```javascript
+    // Alert on significant temp change
+    const tempAlert = {
+      and: [
+        { gte: ['temperature', 25] },
+        { increased: ['temperature'] }
+      ]
+    };
+
+    // Or threshold-based
+    const significantChange = {
+      changedBy: ['temperature', 5]
+    };
+    ```
+  </Tab>
+
+  <Tab title="Order Status Tracking">
+    ```javascript
+    // Detect order completion
+    const orderComplete = {
+      changedTo: ['order.status', 'completed']
+    };
+
+    // Detect cancellation
+    const orderCancelled = {
+      changedTo: ['order.status', 'cancelled']
+    };
+
+    // Any status change
+    const statusChanged = {
+      changed: ['order.status']
+    };
+    ```
+  </Tab>
+
+  <Tab title="Inventory Management">
+    ```javascript
+    // Low stock alert
+    const lowStockAlert = {
+      and: [
+        { decreased: ['stock'] },
+        { lte: ['stock', 10] }
+      ]
+    };
+
+    // Restock needed
+    const needsRestock = {
+      and: [
+        { decreased: ['stock'] },
+        { lt: ['stock', 'reorderLevel'] }
+      ]
+    };
+    ```
+  </Tab>
+
+  <Tab title="Price Monitoring">
+    ```javascript
+    // Price drop alert
+    const priceDropAlert = {
+      and: [
+        { decreased: ['price'] },
+        { changedBy: ['price', 10] }
+      ]
+    };
+
+    // Price change notification
+    const priceChanged = {
+      changed: ['price']
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## StatefulRuleEngine Usage
+
+### Basic Setup
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(engine);
+
+// Define rule
+const rule = {
+  and: [
+    { gte: ['temperature', 25] },
+    { increased: ['temperature'] }
+  ]
+};
+
+// First evaluation
+statefulEngine.evaluate('temp-rule', rule, { temperature: 20 });
+// Result: { success: false, triggered: false }
+
+// Second evaluation - temp increased and now >= 25
+statefulEngine.evaluate('temp-rule', rule, { temperature: 26 });
+// Result: { success: true, triggered: true }
+// Event 'triggered' emitted
+```
+
+### Event System
+
+```javascript
+// Listen for state changes
+statefulEngine.on('triggered', (event) => {
+  console.log(`Rule ${event.ruleId} triggered!`);
+  console.log('Context:', event.context);
+});
+
+statefulEngine.on('changed', (event) => {
+  console.log(`Rule ${event.ruleId} state changed`);
+});
+```
+
+### Batch Evaluation
+
+```javascript
+const rules = {
+  'temp-increased': { increased: ['temperature'] },
+  'temp-critical': { gte: ['temperature', 30] },
+  'temp-changed': { changedBy: ['temperature', 5] }
+};
+
+const results = statefulEngine.evaluateBatch(rules, { temperature: 28 });
+// Returns results for all rules
+```
+
+## Manual Previous Context
+
+Without `StatefulRuleEngine`, pass `_previous` manually:
+
+```javascript
+const context = {
+  temperature: 26,
+  _previous: {
+    temperature: 20
+  }
+};
+
+engine.evaluateExpr({ increased: ['temperature'] }, context);
+// Result: { success: true }
+```
+
+## Quick Reference
+
+| Operator | Args | Detects | Example |
+|----------|------|---------|---------|
+| `changed` | 1 | Any change | `{ changed: ['status'] }` |
+| `changedBy` | 2 | Change ≥ threshold | `{ changedBy: ['temp', 5] }` |
+| `changedFrom` | 2 | From specific value | `{ changedFrom: ['status', 'pending'] }` |
+| `changedTo` | 2 | To specific value | `{ changedTo: ['status', 'done'] }` |
+| `increased` | 1 | Numeric increase | `{ increased: ['score'] }` |
+| `decreased` | 1 | Numeric decrease | `{ decreased: ['stock'] }` |
+
+## Error Handling
+
+<AccordionGroup>
+  <Accordion title="No Previous Context">
+    ```javascript
+    // First evaluation - no previous state
+    const result = statefulEngine.evaluate('rule', { changed: ['value'] }, { value: 10 });
+    // Result: { success: false } - returns false, not error
+    ```
+  </Accordion>
+
+  <Accordion title="Non-Numeric for changedBy">
+    ```javascript
+    const context = {
+      name: 'John',
+      _previous: { name: 'Jane' }
+    };
+
+    const result = engine.evaluateExpr({ changedBy: ['name', 5] }, context);
+    // Error: "CHANGED_BY requires numeric values"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Operators
+
+<CardGroup cols={3}>
+  <Card title="Comparison" icon="equals" href="/operators/comparison">
+    eq, neq
+  </Card>
+  <Card title="Numeric" icon="greater-than-equal" href="/operators/numeric">
+    gt, gte, lt, lte
+  </Card>
+  <Card title="Logical" icon="circle-nodes" href="/operators/logical">
+    and, or, not
+  </Card>
+  <Card title="Stateful Engine" icon="database" href="/essentials/stateful-engine">
+    StatefulRuleEngine guide
+  </Card>
+  <Card title="All Operators" icon="list-check" href="/operators/overview">
+    Complete reference
+  </Card>
+</CardGroup>
+
+## API Reference
+
+- [StatefulRuleEngine API](/api-reference/stateful-engine)
+- [RuleEngine API](/api-reference/rule-engine)
+- [Event System](/essentials/stateful-engine#events)

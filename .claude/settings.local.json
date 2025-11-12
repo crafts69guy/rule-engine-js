@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for file in operators/string.mdx operators/array.mdx operators/numeric.mdx operators/special.mdx operators/state.mdx)",
+      "Bash(done)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

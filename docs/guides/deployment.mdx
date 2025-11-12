@@ -1,0 +1,441 @@
+---
+title: 'Deployment Guide'
+description: 'Deploy rules to production safely'
+icon: 'rocket'
+---
+
+## Production Checklist
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="shield">
+    Prototype protection, input validation
+  </Card>
+  <Card title="Performance" icon="gauge-high">
+    Caching enabled, metrics monitoring
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Graceful failures, logging
+  </Card>
+  <Card title="Monitoring" icon="chart-line">
+    Metrics, alerts, dashboards
+  </Card>
+</CardGroup>
+
+---
+
+## Production Configuration
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine({
+  // Security
+  strict: true,                  // Strict type checking
+  allowPrototypeAccess: false,   // Block prototype pollution
+  maxDepth: 10,                  // Limit nesting
+  maxOperators: 100,             // Limit complexity
+
+  // Performance
+  enableCache: true,
+  maxCacheSize: 2000,            // Increase for production
+
+  // Monitoring
+  enableDebug: false             // Disable debug logs
+});
+```
+
+---
+
+## Environment Variables
+
+```bash
+# .env
+NODE_ENV=production
+
+# Rule Engine
+RULE_ENGINE_MAX_DEPTH=10
+RULE_ENGINE_MAX_CACHE=2000
+RULE_ENGINE_STRICT=true
+
+# Monitoring
+METRICS_ENABLED=true
+LOG_LEVEL=info
+```
+
+```javascript
+const engine = createRuleEngine({
+  strict: process.env.RULE_ENGINE_STRICT === 'true',
+  maxDepth: parseInt(process.env.RULE_ENGINE_MAX_DEPTH) || 10,
+  maxCacheSize: parseInt(process.env.RULE_ENGINE_MAX_CACHE) || 2000
+});
+```
+
+---
+
+## Singleton Pattern
+
+Create one engine instance, reuse everywhere.
+
+```javascript
+// engine.js
+import { createRuleEngine } from 'rule-engine-js';
+
+let engineInstance = null;
+
+export function getEngine() {
+  if (!engineInstance) {
+    engineInstance = createRuleEngine({
+      strict: true,
+      maxDepth: 10,
+      enableCache: true,
+      maxCacheSize: 2000
+    });
+  }
+  return engineInstance;
+}
+
+// Usage in other files
+import { getEngine } from './engine';
+
+const engine = getEngine();
+const result = engine.evaluateExpr(rule, data);
+```
+
+---
+
+## Error Handling
+
+Wrap evaluations in try-catch.
+
+```javascript
+function evaluateRule(rule, context) {
+  try {
+    const result = engine.evaluateExpr(rule, context);
+
+    if (!result.success) {
+      logger.warn('Rule failed', { rule, error: result.error });
+      return { success: false, error: 'Rule evaluation failed' };
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('Rule error', { error: error.message, rule });
+    return { success: false, error: 'Internal error' };
+  }
+}
+```
+
+---
+
+## Logging
+
+```javascript
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+
+// Log rule evaluations
+function logEvaluation(ruleId, result, context) {
+  logger.info('Rule evaluated', {
+    ruleId,
+    success: result.success,
+    duration: result.duration,
+    timestamp: new Date().toISOString()
+  });
+}
+```
+
+---
+
+## Monitoring
+
+### Metrics Endpoint
+
+```javascript
+// Express example
+app.get('/metrics', (req, res) => {
+  const metrics = engine.getMetrics();
+  const cacheStats = engine.getCacheStats();
+
+  res.json({
+    evaluations: {
+      total: metrics.evaluations,
+      errors: metrics.errors,
+      avgTime: metrics.avgTime.toFixed(2) + 'ms'
+    },
+    cache: {
+      hitRate: (metrics.cacheHits / metrics.evaluations * 100).toFixed(1) + '%',
+      size: cacheStats.expression?.size || 0,
+      maxSize: cacheStats.expression?.maxSize || 0
+    }
+  });
+});
+```
+
+### Health Check
+
+```javascript
+app.get('/health', (req, res) => {
+  const metrics = engine.getMetrics();
+
+  const isHealthy =
+    metrics.avgTime < 10 &&                    // < 10ms avg
+    metrics.errors / metrics.evaluations < 0.01; // < 1% error rate
+
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : 'degraded',
+    metrics
+  });
+});
+```
+
+---
+
+## Docker Deployment
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+CMD ["node", "server.js"]
+```
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - RULE_ENGINE_MAX_DEPTH=10
+      - RULE_ENGINE_MAX_CACHE=2000
+    restart: unless-stopped
+```
+
+---
+
+## Load Balancing
+
+```javascript
+// pm2 ecosystem.config.js
+module.exports = {
+  apps: [{
+    name: 'rule-engine-app',
+    script: 'server.js',
+    instances: 'max',  // Use all CPU cores
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production'
+    }
+  }]
+};
+```
+
+---
+
+## Caching Strategy
+
+### Redis for Distributed Cache
+
+```javascript
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+async function evaluateWithCache(ruleId, rule, context) {
+  const cacheKey = `rule:${ruleId}:${JSON.stringify(context)}`;
+
+  // Check Redis cache
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
+  // Evaluate
+  const result = engine.evaluateExpr(rule, context);
+
+  // Cache result (5 min TTL)
+  await redis.setex(cacheKey, 300, JSON.stringify(result));
+
+  return result;
+}
+```
+
+---
+
+## Rate Limiting
+
+```javascript
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 100,             // 100 requests per minute
+  message: 'Too many requests',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.post('/evaluate', limiter, (req, res) => {
+  // Handle rule evaluation
+});
+```
+
+---
+
+## Graceful Shutdown
+
+```javascript
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+
+  // Clear caches
+  engine.clearCache();
+
+  // Close server
+  server.close(() => {
+    logger.info('Server closed');
+    process.exit(0);
+  });
+});
+```
+
+---
+
+## Kubernetes Deployment
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rule-engine
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rule-engine
+  template:
+    metadata:
+      labels:
+        app: rule-engine
+    spec:
+      containers:
+      - name: rule-engine
+        image: rule-engine:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: RULE_ENGINE_MAX_CACHE
+          value: "2000"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Use Singleton Pattern">
+    One engine instance per process.
+  </Accordion>
+
+  <Accordion title="2. Enable Caching">
+    Maximize cache size in production.
+  </Accordion>
+
+  <Accordion title="3. Monitor Metrics">
+    Track evaluations, errors, cache hit rate.
+  </Accordion>
+
+  <Accordion title="4. Graceful Errors">
+    Never expose internal errors to users.
+  </Accordion>
+
+  <Accordion title="5. Rate Limit">
+    Prevent abuse with rate limiting.
+  </Accordion>
+
+  <Accordion title="6. Health Checks">
+    Implement /health endpoint.
+  </Accordion>
+
+  <Accordion title="7. Structured Logging">
+    Use JSON logs for easy parsing.
+  </Accordion>
+
+  <Accordion title="8. Horizontal Scaling">
+    Use load balancers and multiple instances.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Production Checklist
+
+- [ ] Security config verified
+- [ ] Environment variables set
+- [ ] Singleton pattern implemented
+- [ ] Error handling in place
+- [ ] Logging configured
+- [ ] Metrics endpoint added
+- [ ] Health check endpoint added
+- [ ] Rate limiting enabled
+- [ ] Graceful shutdown implemented
+- [ ] Load tested
+- [ ] Monitoring dashboards created
+- [ ] Alerts configured
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="shield" href="/guides/security">
+    Security best practices
+  </Card>
+  <Card title="Performance" icon="gauge-high" href="/guides/performance">
+    Performance optimization
+  </Card>
+</CardGroup>

@@ -1,0 +1,628 @@
+---
+title: 'Complex Validation'
+description: 'Multi-step validation and advanced patterns'
+icon: 'shield'
+---
+
+## Multi-Step Validation
+
+Validate data through multiple stages.
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+// Step 1: Basic validation
+const basicValidation = rules.and(
+  rules.isNotNull('email'),
+  rules.isNotNull('password'),
+  rules.isNotNull('username')
+);
+
+// Step 2: Format validation
+const formatValidation = rules.and(
+  rules.regex('email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'),
+  rules.gte('password.length', 8),
+  rules.gte('username.length', 3)
+);
+
+// Step 3: Business rules
+const businessValidation = rules.and(
+  rules.gte('age', 18),
+  rules.notIn('username', 'bannedUsernames')
+);
+
+// Combine all steps
+const fullValidation = rules.and(
+  basicValidation,
+  formatValidation,
+  businessValidation
+);
+
+const userData = {
+  email: 'user@example.com',
+  password: 'securepass123',
+  username: 'johndoe',
+  age: 25,
+  bannedUsernames: ['admin', 'root']
+};
+
+const result = engine.evaluateExpr(fullValidation, userData);
+// { success: true }
+```
+
+---
+
+## Conditional Validation
+
+Validate different fields based on conditions.
+
+```javascript
+// Validate shipping address only if not pickup
+const shippingValidation = {
+  or: [
+    { eq: ['deliveryMethod', 'pickup'] },
+    {
+      and: [
+        { eq: ['deliveryMethod', 'shipping'] },
+        { isNotNull: ['shippingAddress'] },
+        { isNotNull: ['shippingAddress.street'] },
+        { isNotNull: ['shippingAddress.city'] },
+        { isNotNull: ['shippingAddress.zip'] }
+      ]
+    }
+  ]
+};
+
+// Pickup order - no address needed
+const pickupOrder = {
+  deliveryMethod: 'pickup'
+};
+
+engine.evaluateExpr(shippingValidation, pickupOrder);
+// { success: true }
+
+// Shipping order - address required
+const shippingOrder = {
+  deliveryMethod: 'shipping',
+  shippingAddress: {
+    street: '123 Main St',
+    city: 'New York',
+    zip: '10001'
+  }
+};
+
+engine.evaluateExpr(shippingValidation, shippingOrder);
+// { success: true }
+```
+
+---
+
+## Payment Validation
+
+```javascript
+const paymentValidation = {
+  and: [
+    // Has payment method
+    { isNotNull: ['payment.method'] },
+
+    // Card validation
+    {
+      or: [
+        { neq: ['payment.method', 'card'] },
+        {
+          and: [
+            { eq: ['payment.method', 'card'] },
+            { isNotNull: ['payment.cardNumber'] },
+            { regex: ['payment.cardNumber', '^\\d{16}$'] },
+            { isNotNull: ['payment.cvv'] },
+            { regex: ['payment.cvv', '^\\d{3,4}$'] },
+            { isNotNull: ['payment.expiryMonth'] },
+            { between: ['payment.expiryMonth', [1, 12]] },
+            { isNotNull: ['payment.expiryYear'] },
+            { gte: ['payment.expiryYear', 2024] }
+          ]
+        }
+      ]
+    },
+
+    // PayPal validation
+    {
+      or: [
+        { neq: ['payment.method', 'paypal'] },
+        {
+          and: [
+            { eq: ['payment.method', 'paypal'] },
+            { isNotNull: ['payment.paypalEmail'] },
+            { regex: ['payment.paypalEmail', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'] }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+// Card payment
+const cardPayment = {
+  payment: {
+    method: 'card',
+    cardNumber: '1234567890123456',
+    cvv: '123',
+    expiryMonth: 12,
+    expiryYear: 2025
+  }
+};
+
+engine.evaluateExpr(paymentValidation, cardPayment);
+// { success: true }
+
+// PayPal payment
+const paypalPayment = {
+  payment: {
+    method: 'paypal',
+    paypalEmail: 'user@example.com'
+  }
+};
+
+engine.evaluateExpr(paymentValidation, paypalPayment);
+// { success: true }
+```
+
+---
+
+## Cross-Field Validation
+
+Validate relationships between fields.
+
+```javascript
+// Password confirmation
+const passwordMatch = {
+  and: [
+    { isNotNull: ['password'] },
+    { isNotNull: ['confirmPassword'] },
+    { eq: ['password', 'confirmPassword'] }
+  ]
+};
+
+// Date range validation
+const dateRange = {
+  and: [
+    { isNotNull: ['startDate'] },
+    { isNotNull: ['endDate'] },
+    { lte: ['startDate', 'endDate'] }
+  ]
+};
+
+// Discount validation
+const discountValidation = {
+  and: [
+    { gte: ['discount', 0] },
+    { lt: ['discount', 'originalPrice'] },
+    { gt: ['originalPrice', 0] }
+  ]
+};
+
+const product = {
+  originalPrice: 100,
+  discount: 20
+};
+
+engine.evaluateExpr(discountValidation, product);
+// { success: true }
+```
+
+---
+
+## Nested Object Validation
+
+```javascript
+const userProfileValidation = {
+  and: [
+    // User basic info
+    { isNotNull: ['user.name'] },
+    { isNotNull: ['user.email'] },
+    { gte: ['user.age', 18] },
+
+    // Address
+    { isNotNull: ['user.address.street'] },
+    { isNotNull: ['user.address.city'] },
+    { regex: ['user.address.zip', '^\\d{5}$'] },
+
+    // Preferences
+    { in: ['user.preferences.language', ['en', 'es', 'fr']] },
+    { in: ['user.preferences.theme', ['light', 'dark']] },
+
+    // Permissions
+    { isNotNull: ['user.permissions'] },
+    { gte: ['user.permissions.length', 1] }
+  ]
+};
+
+const userProfile = {
+  user: {
+    name: 'John Doe',
+    email: 'john@example.com',
+    age: 30,
+    address: {
+      street: '123 Main St',
+      city: 'New York',
+      zip: '10001'
+    },
+    preferences: {
+      language: 'en',
+      theme: 'dark'
+    },
+    permissions: ['read', 'write']
+  }
+};
+
+engine.evaluateExpr(userProfileValidation, userProfile);
+// { success: true }
+```
+
+---
+
+## Array Validation
+
+```javascript
+// Validate array contents
+const cartValidation = {
+  and: [
+    // Has items
+    { isNotNull: ['cart.items'] },
+    { gt: ['cart.items.length', 0] },
+    { lte: ['cart.items.length', 50] },
+
+    // Total is valid
+    { gte: ['cart.total', 0] },
+    { isNotNull: ['cart.currency'] }
+  ]
+};
+
+// Order items validation
+const orderValidation = {
+  and: [
+    { gt: ['items.length', 0] },
+    { gte: ['total', 0.01] },
+    { eq: ['total', 'expectedTotal'] }
+  ]
+};
+
+const order = {
+  items: [
+    { id: 1, price: 29.99, quantity: 2 },
+    { id: 2, price: 19.99, quantity: 1 }
+  ],
+  total: 79.97,
+  expectedTotal: 79.97
+};
+
+engine.evaluateExpr(orderValidation, order);
+// { success: true }
+```
+
+---
+
+## File Upload Validation
+
+```javascript
+const fileValidation = {
+  and: [
+    // File exists
+    { isNotNull: ['file.name'] },
+    { isNotNull: ['file.size'] },
+    { isNotNull: ['file.type'] },
+
+    // Size limits (10MB max)
+    { gt: ['file.size', 0] },
+    { lte: ['file.size', 10485760] },
+
+    // Allowed types
+    {
+      or: [
+        { endsWith: ['file.name', '.jpg'] },
+        { endsWith: ['file.name', '.png'] },
+        { endsWith: ['file.name', '.pdf'] }
+      ]
+    },
+
+    // MIME type check
+    {
+      in: ['file.type', [
+        'image/jpeg',
+        'image/png',
+        'application/pdf'
+      ]]
+    }
+  ]
+};
+
+const validFile = {
+  file: {
+    name: 'document.pdf',
+    size: 1048576, // 1MB
+    type: 'application/pdf'
+  }
+};
+
+engine.evaluateExpr(fileValidation, validFile);
+// { success: true }
+```
+
+---
+
+## Form Wizard Validation
+
+Multi-page form with step-by-step validation.
+
+```javascript
+// Step 1: Personal Info
+const step1Validation = rules.and(
+  rules.isNotNull('firstName'),
+  rules.isNotNull('lastName'),
+  rules.isNotNull('email'),
+  rules.regex('email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$')
+);
+
+// Step 2: Address
+const step2Validation = rules.and(
+  rules.isNotNull('street'),
+  rules.isNotNull('city'),
+  rules.isNotNull('state'),
+  rules.regex('zip', '^\\d{5}$')
+);
+
+// Step 3: Payment
+const step3Validation = rules.and(
+  rules.isNotNull('cardNumber'),
+  rules.regex('cardNumber', '^\\d{16}$'),
+  rules.isNotNull('cvv'),
+  rules.regex('cvv', '^\\d{3,4}$')
+);
+
+// Complete form validation
+const completeFormValidation = rules.and(
+  step1Validation,
+  step2Validation,
+  step3Validation
+);
+
+// Validate incrementally
+function validateStep(stepNumber, data) {
+  const validations = [
+    step1Validation,
+    step2Validation,
+    step3Validation
+  ];
+
+  return engine.evaluateExpr(validations[stepNumber - 1], data);
+}
+
+const formData = {
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john@example.com',
+  street: '123 Main St',
+  city: 'NYC',
+  state: 'NY',
+  zip: '10001',
+  cardNumber: '1234567890123456',
+  cvv: '123'
+};
+
+// Validate step 1
+validateStep(1, formData); // { success: true }
+
+// Validate step 2
+validateStep(2, formData); // { success: true }
+
+// Validate complete form
+engine.evaluateExpr(completeFormValidation, formData);
+// { success: true }
+```
+
+---
+
+## Dynamic Validation
+
+Validation based on user type.
+
+```javascript
+function createUserValidation(userType) {
+  const baseValidation = rules.and(
+    rules.isNotNull('email'),
+    rules.isNotNull('password'),
+    rules.gte('password.length', 8)
+  );
+
+  if (userType === 'business') {
+    return rules.and(
+      baseValidation,
+      rules.isNotNull('companyName'),
+      rules.isNotNull('taxId'),
+      rules.regex('taxId', '^\\d{9}$')
+    );
+  }
+
+  if (userType === 'individual') {
+    return rules.and(
+      baseValidation,
+      rules.isNotNull('firstName'),
+      rules.isNotNull('lastName'),
+      rules.gte('age', 18)
+    );
+  }
+
+  return baseValidation;
+}
+
+// Business user
+const businessUser = {
+  email: 'contact@company.com',
+  password: 'securepass123',
+  companyName: 'Acme Corp',
+  taxId: '123456789'
+};
+
+const businessRule = createUserValidation('business');
+engine.evaluateExpr(businessRule, businessUser);
+// { success: true }
+
+// Individual user
+const individualUser = {
+  email: 'john@example.com',
+  password: 'securepass123',
+  firstName: 'John',
+  lastName: 'Doe',
+  age: 30
+};
+
+const individualRule = createUserValidation('individual');
+engine.evaluateExpr(individualRule, individualUser);
+// { success: true }
+```
+
+---
+
+## Comprehensive E-commerce Validation
+
+```javascript
+const checkoutValidation = {
+  and: [
+    // Cart validation
+    { gt: ['cart.items.length', 0] },
+    { lte: ['cart.items.length', 100] },
+    { gte: ['cart.total', 0.01] },
+
+    // User validation
+    { eq: ['user.verified', true] },
+    { eq: ['user.status', 'active'] },
+    { notIn: ['user.id', 'blockedUsers'] },
+
+    // Shipping validation
+    {
+      or: [
+        { eq: ['shipping.method', 'pickup'] },
+        {
+          and: [
+            { in: ['shipping.method', ['standard', 'express', 'overnight']] },
+            { isNotNull: ['shipping.address.street'] },
+            { isNotNull: ['shipping.address.city'] },
+            { isNotNull: ['shipping.address.zip'] }
+          ]
+        }
+      ]
+    },
+
+    // Payment validation
+    { isNotNull: ['payment.method'] },
+    {
+      or: [
+        { eq: ['payment.method', 'card'] },
+        { eq: ['payment.method', 'paypal'] },
+        { eq: ['payment.method', 'crypto'] }
+      ]
+    },
+
+    // Inventory check
+    { eq: ['inventory.available', true] },
+
+    // Coupon validation (if present)
+    {
+      or: [
+        { isNull: ['coupon'] },
+        {
+          and: [
+            { isNotNull: ['coupon.code'] },
+            { eq: ['coupon.valid', true] },
+            { gte: ['coupon.expiresAt', 'currentDate'] }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+const checkoutData = {
+  cart: {
+    items: [{ id: 1, price: 29.99 }],
+    total: 29.99
+  },
+  user: {
+    id: 123,
+    verified: true,
+    status: 'active'
+  },
+  shipping: {
+    method: 'standard',
+    address: {
+      street: '123 Main St',
+      city: 'NYC',
+      zip: '10001'
+    }
+  },
+  payment: {
+    method: 'card'
+  },
+  inventory: {
+    available: true
+  },
+  coupon: null,
+  blockedUsers: [],
+  currentDate: '2024-12-31'
+};
+
+engine.evaluateExpr(checkoutValidation, checkoutData);
+// { success: true }
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Validate in Layers">
+    Basic → Format → Business rules
+  </Accordion>
+
+  <Accordion title="2. Use Conditional Validation">
+    Validate only what's needed based on context
+  </Accordion>
+
+  <Accordion title="3. Reuse Validation Rules">
+    Extract common validations as constants
+  </Accordion>
+
+  <Accordion title="4. Fail Fast">
+    Put simple checks first to exit early
+  </Accordion>
+
+  <Accordion title="5. Clear Error Messages">
+    Structure rules to identify which part failed
+  </Accordion>
+
+  <Accordion title="6. Test Edge Cases">
+    Test null, undefined, empty values
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Basic Rules" icon="play" href="/examples/basic-rules">
+    Simple validation examples
+  </Card>
+  <Card title="Rule Helpers" icon="wrench" href="/api-reference/rule-helpers">
+    Fluent API for building rules
+  </Card>
+  <Card title="Testing Guide" icon="flask" href="/guides/testing">
+    How to test complex rules
+  </Card>
+  <Card title="Real-World Scenarios" icon="globe" href="/examples/real-world-scenarios">
+    Production examples
+  </Card>
+</CardGroup>

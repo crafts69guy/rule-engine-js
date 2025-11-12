@@ -1,0 +1,546 @@
+---
+title: 'Contributing'
+description: 'How to contribute to Rule Engine JS'
+icon: 'code-pull-request'
+---
+
+## Welcome
+
+Thank you for considering contributing to Rule Engine JS! This guide will help you get started.
+
+<CardGroup cols={2}>
+  <Card title="Setup" icon="download">
+    Clone, install, and verify
+  </Card>
+  <Card title="Contribute" icon="code">
+    Bug fixes, features, docs
+  </Card>
+  <Card title="Test" icon="vial">
+    Write and run tests
+  </Card>
+  <Card title="Submit" icon="paper-plane">
+    Create pull requests
+  </Card>
+</CardGroup>
+
+---
+
+## Quick Start
+
+### 1. Fork and Clone
+
+```bash
+# Fork the repository on GitHub, then clone
+git clone https://github.com/YOUR_USERNAME/rule-engine-js.git
+cd rule-engine-js
+
+# Add upstream
+git remote add upstream https://github.com/crafts69guy/rule-engine-js.git
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+
+# Verify setup
+npm test
+npm run lint
+npm run build
+```
+
+### 3. Development Commands
+
+```bash
+npm run dev           # Development mode with watch
+npm run test:watch    # Tests in watch mode
+npm run lint:fix      # Auto-fix linting issues
+npm run format        # Format code with Prettier
+```
+
+---
+
+## Project Structure
+
+```
+rule-engine-js/
+├── src/
+│   ├── core/          # RuleEngine, PathResolver, StatefulRuleEngine
+│   ├── operators/     # All operator implementations
+│   ├── helpers/       # Rule building helpers
+│   └── utils/         # Utility functions
+├── tests/
+│   ├── unit/          # Unit tests
+│   ├── integration/   # Integration tests
+│   └── e2e/          # End-to-end tests
+└── docs/             # Documentation (Mintlify)
+```
+
+---
+
+## Contribution Types
+
+<Tabs>
+  <Tab title="🐛 Bug Fixes">
+    **Process:**
+    1. Search existing issues
+    2. Create test case that reproduces bug
+    3. Fix the bug
+    4. Ensure all tests pass
+    5. Update docs if needed
+
+    ```bash
+    git checkout -b fix/issue-description
+    # Make changes
+    npm test
+    git commit -m "fix: description"
+    ```
+  </Tab>
+
+  <Tab title="✨ Features">
+    **Process:**
+    1. Discuss in issue first
+    2. Ensure backward compatibility
+    3. Add comprehensive tests
+    4. Update documentation
+    5. Add examples
+
+    ```bash
+    git checkout -b feature/feature-name
+    # Implement feature
+    npm test
+    git commit -m "feat: description"
+    ```
+  </Tab>
+
+  <Tab title="📚 Documentation">
+    **Process:**
+    1. Fix typos and grammar
+    2. Improve code examples
+    3. Add missing docs
+    4. Clarify confusing sections
+
+    ```bash
+    git checkout -b docs/doc-improvement
+    # Update docs
+    git commit -m "docs: description"
+    ```
+  </Tab>
+
+  <Tab title="🔧 Operators">
+    **Add new operators:**
+
+    ```javascript
+    // src/operators/custom.js
+    import { BaseOperator } from './base/BaseOperator.js';
+
+    export class CustomOperators extends BaseOperator {
+      register(engine) {
+        engine.registerOperator('myOp', this.createMyOp().bind(this));
+      }
+
+      createMyOp() {
+        return (args, context) => {
+          this.validateArgs(args, 2, 'myOp');
+          const [left, right] = args;
+          // Implementation
+          return true;
+        };
+      }
+    }
+    ```
+
+    **Requirements:**
+    - Extend BaseOperator
+    - Validate inputs
+    - Handle edge cases
+    - Support dynamic fields
+    - Add comprehensive tests
+    - Document thoroughly
+  </Tab>
+</Tabs>
+
+---
+
+## Commit Convention
+
+We follow **Conventional Commits**:
+
+```bash
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `style`: Code style (formatting)
+- `refactor`: Code refactoring
+- `perf`: Performance improvement
+- `test`: Adding/modifying tests
+- `chore`: Maintenance tasks
+- `security`: Security fixes
+
+**Examples:**
+
+```bash
+feat(operators): add between operator for range checking
+
+fix(core): resolve memory leak in path cache
+
+docs(security): add security best practices guide
+
+perf(cache): optimize expression cache hit rate
+
+test(operators): add comprehensive regex operator tests
+```
+
+---
+
+## Code Standards
+
+### JavaScript Style
+
+```javascript
+// ✅ Good
+const engine = createRuleEngine();
+const rule = rules.and(
+  rules.gte('age', 18),
+  rules.eq('status', 'active')
+);
+
+// Use template literals
+const errorMsg = `Operator '${name}' failed`;
+
+// Destructuring
+const { success, error } = result;
+
+// JSDoc for public APIs
+/**
+ * Evaluates a rule expression
+ * @param {Object} rule - Rule expression
+ * @param {Object} context - Data context
+ * @returns {Object} Evaluation result
+ */
+function evaluateExpr(rule, context) {
+  // Implementation
+}
+```
+
+```javascript
+// ❌ Avoid
+var engine = createRuleEngine(); // Use const/let
+const r = rules.eq('n', 'John'); // Be descriptive
+const msg = 'Error: ' + name; // Use template literals
+```
+
+### Error Handling
+
+```javascript
+// ✅ Proper error handling
+if (!rule || typeof rule !== 'object') {
+  throw new ValidationError('Rule must be a non-null object');
+}
+
+// Validate early
+function evaluate(rule, context) {
+  if (!context) {
+    throw new ValidationError('Context is required');
+  }
+  // Proceed
+}
+```
+
+---
+
+## Testing
+
+### Test Structure
+
+```javascript
+describe('Feature Name', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = createRuleEngine();
+  });
+
+  it('should handle valid input', () => {
+    const rule = { eq: ['name', 'John'] };
+    const context = { name: 'John' };
+
+    const result = engine.evaluateExpr(rule, context);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('should handle null gracefully', () => {
+    const rule = { eq: ['name', 'John'] };
+    const context = { name: null };
+
+    const result = engine.evaluateExpr(rule, context);
+
+    expect(result.success).toBe(false);
+  });
+});
+```
+
+### Test Requirements
+
+- **100% coverage** for new features
+- **Test edge cases** - null, undefined, empty
+- **Test errors** - invalid inputs
+- **Test performance** - no regressions
+
+---
+
+## Pull Request Process
+
+### Before Creating PR
+
+```bash
+# 1. Ensure tests pass
+npm test
+npm run lint
+npm run build
+
+# 2. Rebase on latest main
+git fetch upstream
+git rebase upstream/main
+
+# 3. Push to your fork
+git push origin feature/your-feature
+```
+
+### PR Checklist
+
+- [ ] Tests pass locally
+- [ ] Code follows style guidelines
+- [ ] Documentation updated
+- [ ] Commit messages follow convention
+- [ ] No breaking changes (or documented)
+- [ ] Examples added (if applicable)
+
+### PR Template
+
+```markdown
+## Description
+Brief description of changes.
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation
+
+## Testing
+- [ ] Added tests
+- [ ] All tests pass
+
+## Related Issues
+Closes #123
+```
+
+---
+
+## Security
+
+**Reporting Vulnerabilities:**
+
+**Do not** open public issues for security vulnerabilities.
+
+Email: **crafts69guy@gmail.com**
+
+Include:
+1. Reproduction steps
+2. Impact assessment
+3. Possible fixes (if known)
+
+**Security Testing:**
+
+```javascript
+it('should prevent prototype pollution', () => {
+  const malicious = {
+    "__proto__": { isAdmin: true }
+  };
+
+  const rule = { eq: ['__proto__.isAdmin', true] };
+  const result = engine.evaluateExpr(rule, malicious);
+
+  expect(result.success).toBe(false);
+  expect(Object.prototype.isAdmin).toBeUndefined();
+});
+```
+
+---
+
+## Issue Guidelines
+
+### Before Creating Issue
+
+1. **Search existing issues** - Avoid duplicates
+2. **Check documentation** - Verify not covered
+3. **Test latest version** - Ensure issue exists
+4. **Create minimal reproduction** - Simplest case
+
+### Bug Report
+
+```markdown
+**Bug Description**
+Clear description of the bug.
+
+**To Reproduce**
+1. Create rule `{ eq: ['field', 'value'] }`
+2. Evaluate with context `{ field: 'value' }`
+3. See error
+
+**Expected Behavior**
+What you expected to happen.
+
+**Actual Behavior**
+What actually happened.
+
+**Environment**
+- Rule Engine JS version: 1.0.3
+- Node.js version: 18.15.0
+- OS: Ubuntu 20.04
+```
+
+### Feature Request
+
+```markdown
+**Problem**
+Description of the problem.
+
+**Solution**
+What you want to happen.
+
+**Use Case**
+How this feature helps.
+
+**Example API**
+```javascript
+const rule = rules.newOperator('field', 'value');
+```
+```
+
+---
+
+## Labels
+
+**Type:**
+- `bug` - Something isn't working
+- `enhancement` - New feature
+- `documentation` - Docs improvements
+- `performance` - Performance improvements
+- `security` - Security issues
+
+**Priority:**
+- `critical` - Severe bugs/security
+- `high` - Important bugs/features
+- `medium` - Standard bugs/features
+- `low` - Minor improvements
+
+**Status:**
+- `good first issue` - Good for newcomers
+- `help wanted` - Extra attention needed
+- `blocked` - Waiting on dependencies
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Start Small">
+    Begin with simple contributions like docs or good first issues
+  </Accordion>
+
+  <Accordion title="2. Communicate Early">
+    Discuss ideas in issues before implementing
+  </Accordion>
+
+  <Accordion title="3. Test Thoroughly">
+    Cover edge cases and error conditions
+  </Accordion>
+
+  <Accordion title="4. Document Well">
+    Help others understand your code
+  </Accordion>
+
+  <Accordion title="5. Be Patient">
+    Reviews take time, feedback improves quality
+  </Accordion>
+
+  <Accordion title="6. Stay Involved">
+    Help maintain your contributions
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Community
+
+### Communication Channels
+
+- **GitHub Issues** - Bug reports and feature requests
+- **GitHub Discussions** - Questions and ideas
+- **Pull Requests** - Code contributions
+- **Email** - crafts69guy@gmail.com for security
+
+### Code of Conduct
+
+- **Be respectful** and professional
+- **Be constructive** in feedback
+- **Be patient** with new contributors
+- **Help others learn** and grow
+
+---
+
+## Recognition
+
+Contributors are recognized in:
+
+- **CONTRIBUTORS.md** - All contributors
+- **GitHub releases** - Release notes acknowledgments
+- **Documentation** - Credit for major contributions
+
+---
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="GitHub Repo" icon="github" href="https://github.com/crafts69guy/rule-engine-js">
+    Source code and issues
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Complete API documentation
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-rules">
+    Usage examples
+  </Card>
+  <Card title="Changelog" icon="clock-rotate-left" href="/changelog">
+    Version history
+  </Card>
+</CardGroup>
+
+---
+
+## Contact
+
+**Maintainer:** Crafts 69 Guy
+
+**Email:** crafts69guy@gmail.com
+
+**GitHub:** [@crafts69guy](https://github.com/crafts69guy)
+
+---
+
+## Thank You
+
+Thank you for contributing to Rule Engine JS! Whether you're fixing bugs, adding features, improving docs, or helping others, every contribution matters.
+
+**Happy coding! 🚀**

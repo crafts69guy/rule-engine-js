@@ -1,0 +1,373 @@
+---
+title: 'Rule Helpers API'
+description: 'Fluent API for building rules programmatically'
+icon: 'wrench'
+---
+
+## Overview
+
+Rule Helpers provide a fluent API to build rules programmatically instead of writing JSON.
+
+```javascript
+import { createRuleHelpers } from 'rule-engine-js';
+
+const rules = createRuleHelpers();
+```
+
+---
+
+## Comparison Operators
+
+### eq()
+
+```javascript
+rules.eq(field, value)
+// { eq: [field, value] }
+```
+
+### neq()
+
+```javascript
+rules.neq(field, value)
+// { neq: [field, value] }
+```
+
+---
+
+## Numeric Operators
+
+### gt(), gte(), lt(), lte()
+
+```javascript
+rules.gt('age', 18)
+// { gt: ['age', 18] }
+
+rules.gte('score', 70)
+rules.lt('price', 100)
+rules.lte('quantity', 50)
+```
+
+---
+
+## Logical Operators
+
+### and()
+
+```javascript
+rules.and(...conditions)
+// { and: [conditions] }
+```
+
+**Example:**
+
+```javascript
+rules.and(
+  rules.gte('age', 18),
+  rules.eq('role', 'admin'),
+  rules.in('write', 'permissions')
+)
+// {
+//   and: [
+//     { gte: ['age', 18] },
+//     { eq: ['role', 'admin'] },
+//     { in: ['write', 'permissions'] }
+//   ]
+// }
+```
+
+### or()
+
+```javascript
+rules.or(...conditions)
+// { or: [conditions] }
+```
+
+### not()
+
+```javascript
+rules.not(condition)
+// { not: [condition] }
+```
+
+---
+
+## String Operators
+
+### contains()
+
+```javascript
+rules.contains('email', '@company.com')
+// { contains: ['email', '@company.com'] }
+```
+
+### startsWith()
+
+```javascript
+rules.startsWith('filename', 'report_')
+// { startsWith: ['filename', 'report_'] }
+```
+
+### endsWith()
+
+```javascript
+rules.endsWith('filename', '.pdf')
+// { endsWith: ['filename', '.pdf'] }
+```
+
+### regex()
+
+```javascript
+rules.regex('email', '^[a-z]+@example\\.com$')
+// { regex: ['email', '^[a-z]+@example\\.com$'] }
+```
+
+---
+
+## Array Operators
+
+### in()
+
+```javascript
+rules.in('role', ['admin', 'moderator', 'user'])
+// { in: ['role', ['admin', 'moderator', 'user']] }
+
+// Or check value in array field
+rules.in('write', 'permissions')
+// { in: ['write', 'permissions'] }
+```
+
+### notIn()
+
+```javascript
+rules.notIn('status', ['banned', 'suspended'])
+// { notIn: ['status', ['banned', 'suspended']] }
+```
+
+---
+
+## Special Operators
+
+### between()
+
+```javascript
+rules.between('age', [18, 65])
+// { between: ['age', [18, 65]] }
+```
+
+### isNull()
+
+```javascript
+rules.isNull('middleName')
+// { isNull: ['middleName'] }
+```
+
+### isNotNull()
+
+```javascript
+rules.isNotNull('email')
+// { isNotNull: ['email'] }
+```
+
+---
+
+## State Operators
+
+### changed()
+
+```javascript
+rules.changed('temperature')
+// { changed: ['temperature'] }
+```
+
+### changedBy()
+
+```javascript
+rules.changedBy('price', 10)
+// { changedBy: ['price', 10] }
+```
+
+### changedFrom(), changedTo()
+
+```javascript
+rules.changedFrom('status', 'pending')
+rules.changedTo('status', 'completed')
+```
+
+### increased(), decreased()
+
+```javascript
+rules.increased('score')
+rules.decreased('stock')
+```
+
+---
+
+## Field Comparison
+
+Compare two fields:
+
+```javascript
+rules.field.equals('password', 'confirmPassword')
+// { eq: ['password', 'confirmPassword'] }
+
+rules.field.lessThan('price', 'maxPrice')
+// { lt: ['price', 'maxPrice'] }
+
+rules.field.greaterThan('score', 'minScore')
+// { gt: ['score', 'minScore'] }
+```
+
+---
+
+## Validation Helpers
+
+### email()
+
+```javascript
+rules.validation.email('email')
+// { regex: ['email', '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'] }
+```
+
+### required()
+
+```javascript
+rules.validation.required('username')
+// { isNotNull: ['username'] }
+```
+
+### ageRange()
+
+```javascript
+rules.validation.ageRange('age', 18, 120)
+// { between: ['age', [18, 120]] }
+```
+
+### isTrue(), isFalse()
+
+```javascript
+rules.isTrue('acceptedTerms')
+// { eq: ['acceptedTerms', true] }
+
+rules.isFalse('isBlocked')
+// { eq: ['isBlocked', false] }
+```
+
+---
+
+## Complete Example
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+// Build complex rule
+const canAccessAdminPanel = rules.and(
+  // Must be adult
+  rules.gte('age', 18),
+
+  // Must be admin or moderator
+  rules.or(
+    rules.eq('role', 'admin'),
+    rules.eq('role', 'moderator')
+  ),
+
+  // Must have valid email
+  rules.validation.email('email'),
+
+  // Must have write permission
+  rules.in('write', 'permissions'),
+
+  // Must not be banned
+  rules.not(
+    rules.eq('status', 'banned')
+  )
+);
+
+// Evaluate
+const user = {
+  age: 25,
+  role: 'admin',
+  email: 'admin@company.com',
+  permissions: ['read', 'write', 'delete'],
+  status: 'active'
+};
+
+const result = engine.evaluateExpr(canAccessAdminPanel, user);
+console.log(result.success); // true
+```
+
+---
+
+## Comparison: JSON vs Helpers
+
+<Tabs>
+  <Tab title="JSON">
+    ```javascript
+    // Verbose JSON
+    const rule = {
+      and: [
+        { gte: ['age', 18] },
+        { eq: ['role', 'admin'] },
+        {
+          or: [
+            { contains: ['email', '@company.com'] },
+            { contains: ['email', '@admin.com'] }
+          ]
+        }
+      ]
+    };
+    ```
+  </Tab>
+
+  <Tab title="Helpers">
+    ```javascript
+    // Cleaner with helpers
+    const rule = rules.and(
+      rules.gte('age', 18),
+      rules.eq('role', 'admin'),
+      rules.or(
+        rules.contains('email', '@company.com'),
+        rules.contains('email', '@admin.com')
+      )
+    );
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## TypeScript
+
+Full type support:
+
+```typescript
+import { createRuleHelpers } from 'rule-engine-js';
+import type { RuleHelpers, RuleExpression } from 'rule-engine-js';
+
+const rules: RuleHelpers = createRuleHelpers();
+const rule: RuleExpression = rules.and(
+  rules.gte('age', 18),
+  rules.eq('role', 'admin')
+);
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine API" icon="gear" href="/api-reference/rule-engine">
+    Engine API reference
+  </Card>
+  <Card title="Operators" icon="list" href="/operators/overview">
+    All available operators
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-rules">
+    Practical examples
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started guide
+  </Card>
+</CardGroup>

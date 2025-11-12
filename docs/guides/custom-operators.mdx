@@ -1,0 +1,420 @@
+---
+title: 'Custom Operators'
+description: 'Create your own operators for business logic'
+icon: 'plus'
+---
+
+## Quick Start
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+
+// Register custom operator
+engine.registerOperator('divisibleBy', (args, context) => {
+  const [path, divisor] = args;
+  const value = engine.resolvePath(context, path);
+  return value % divisor === 0;
+});
+
+// Use it
+engine.evaluateExpr({ divisibleBy: ['age', 5] }, { age: 25 });
+// { success: true }
+```
+
+---
+
+## Operator Structure
+
+```javascript
+function customOperator(args, context) {
+  // 1. Validate arguments
+  if (!Array.isArray(args) || args.length !== 2) {
+    throw new Error('Operator requires 2 arguments');
+  }
+
+  // 2. Extract arguments
+  const [path, expectedValue] = args;
+
+  // 3. Resolve values
+  const actualValue = engine.resolvePath(context, path);
+
+  // 4. Perform logic
+  return actualValue === expectedValue;
+}
+```
+
+---
+
+## Simple Examples
+
+### isEven / isOdd
+
+```javascript
+engine.registerOperator('isEven', (args, context) => {
+  const [path] = args;
+  const value = engine.resolvePath(context, path);
+  return typeof value === 'number' && value % 2 === 0;
+});
+
+engine.registerOperator('isOdd', (args, context) => {
+  const [path] = args;
+  const value = engine.resolvePath(context, path);
+  return typeof value === 'number' && value % 2 !== 0;
+});
+
+// Usage
+engine.evaluateExpr({ isEven: ['count'] }, { count: 10 });
+// { success: true }
+```
+
+### lengthEquals
+
+```javascript
+engine.registerOperator('lengthEquals', (args, context) => {
+  const [path, expectedLength] = args;
+  const value = engine.resolvePath(context, path);
+
+  if (!value || typeof value.length !== 'number') {
+    return false;
+  }
+
+  return value.length === expectedLength;
+});
+
+// Usage
+engine.evaluateExpr({ lengthEquals: ['items', 3] }, { items: [1, 2, 3] });
+// { success: true }
+```
+
+---
+
+## Advanced Examples
+
+### inDateRange
+
+```javascript
+engine.registerOperator('inDateRange', (args, context) => {
+  const [path, startDate, endDate] = args;
+  const value = engine.resolvePath(context, path);
+
+  const date = new Date(value);
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  return date >= start && date <= end;
+});
+
+// Usage
+engine.evaluateExpr(
+  { inDateRange: ['createdAt', '2024-01-01', '2024-12-31'] },
+  { createdAt: '2024-06-15' }
+);
+// { success: true }
+```
+
+### matchesAny
+
+```javascript
+engine.registerOperator('matchesAny', (args, context) => {
+  const [path, patterns] = args;
+  const value = engine.resolvePath(context, path);
+
+  if (typeof value !== 'string') return false;
+
+  return patterns.some(pattern => {
+    const regex = new RegExp(pattern);
+    return regex.test(value);
+  });
+});
+
+// Usage
+engine.evaluateExpr(
+  { matchesAny: ['email', ['^admin@', '^support@', '^sales@']] },
+  { email: 'admin@company.com' }
+);
+// { success: true }
+```
+
+### haversineDistance
+
+```javascript
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+engine.registerOperator('withinDistance', (args, context) => {
+  const [latPath, lonPath, targetLat, targetLon, maxKm] = args;
+
+  const lat = engine.resolvePath(context, latPath);
+  const lon = engine.resolvePath(context, lonPath);
+
+  const distance = haversine(lat, lon, targetLat, targetLon);
+  return distance <= maxKm;
+});
+
+// Usage
+engine.evaluateExpr(
+  { withinDistance: ['location.lat', 'location.lon', 40.7128, -74.0060, 10] },
+  { location: { lat: 40.7589, lon: -73.9851 } }
+);
+// { success: true } - Within 10km of NYC
+```
+
+---
+
+## Validation
+
+Add proper validation to operators.
+
+```javascript
+engine.registerOperator('between', (args, context) => {
+  // Validate argument count
+  if (!Array.isArray(args) || args.length !== 2) {
+    throw new Error('BETWEEN requires 2 arguments');
+  }
+
+  const [path, range] = args;
+
+  // Validate range format
+  if (!Array.isArray(range) || range.length !== 2) {
+    throw new Error('Range must be [min, max]');
+  }
+
+  const value = engine.resolvePath(context, path);
+  const [min, max] = range;
+
+  // Validate numeric values
+  if (typeof value !== 'number' || typeof min !== 'number' || typeof max !== 'number') {
+    throw new Error('All values must be numbers');
+  }
+
+  return value >= min && value <= max;
+});
+```
+
+---
+
+## Dynamic Operators
+
+Create operators that generate other operators.
+
+```javascript
+function createComparator(compareFn) {
+  return (args, context) => {
+    const [left, right] = args;
+    const leftVal = engine.resolvePath(context, left);
+    const rightVal = engine.resolvePath(context, right);
+    return compareFn(leftVal, rightVal);
+  };
+}
+
+// Register multiple related operators
+engine.registerOperator('gt', createComparator((a, b) => a > b));
+engine.registerOperator('lt', createComparator((a, b) => a < b));
+engine.registerOperator('gte', createComparator((a, b) => a >= b));
+engine.registerOperator('lte', createComparator((a, b) => a <= b));
+```
+
+---
+
+## Async Operators
+
+<Warning>
+Rule Engine JS does not support async operators natively. All operators must be synchronous.
+</Warning>
+
+**Workaround:** Pre-fetch async data before evaluation.
+
+```javascript
+// ❌ This won't work
+engine.registerOperator('asyncCheck', async (args, context) => {
+  const result = await fetchFromAPI();
+  return result;
+});
+
+// ✅ Do this instead
+async function evaluateWithAsyncData(rule, context) {
+  // 1. Fetch async data first
+  const apiData = await fetchFromAPI();
+
+  // 2. Add to context
+  const enrichedContext = {
+    ...context,
+    apiData
+  };
+
+  // 3. Evaluate synchronously
+  return engine.evaluateExpr(rule, enrichedContext);
+}
+```
+
+---
+
+## Testing Custom Operators
+
+```javascript
+describe('Custom Operators', () => {
+  beforeEach(() => {
+    engine = createRuleEngine();
+
+    engine.registerOperator('divisibleBy', (args, context) => {
+      const [path, divisor] = args;
+      const value = engine.resolvePath(context, path);
+      return value % divisor === 0;
+    });
+  });
+
+  test('divisibleBy works correctly', () => {
+    expect(
+      engine.evaluateExpr({ divisibleBy: ['age', 5] }, { age: 25 }).success
+    ).toBe(true);
+
+    expect(
+      engine.evaluateExpr({ divisibleBy: ['age', 5] }, { age: 23 }).success
+    ).toBe(false);
+  });
+
+  test('handles invalid input', () => {
+    expect(() =>
+      engine.evaluateExpr({ divisibleBy: ['name', 5] }, { name: 'John' })
+    ).toThrow();
+  });
+});
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Validate Arguments">
+    Always check argument count and types.
+  </Accordion>
+
+  <Accordion title="2. Handle Edge Cases">
+    Test with null, undefined, wrong types.
+  </Accordion>
+
+  <Accordion title="3. Return Boolean">
+    Operators should return true/false.
+  </Accordion>
+
+  <Accordion title="4. Use Descriptive Names">
+    Name operators clearly (e.g., 'isEven', not 'check').
+  </Accordion>
+
+  <Accordion title="5. Document Behavior">
+    Add JSDoc comments explaining usage.
+  </Accordion>
+
+  <Accordion title="6. Keep It Sync">
+    No async/await in operators.
+  </Accordion>
+
+  <Accordion title="7. Throw Meaningful Errors">
+    Help users debug with clear error messages.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Complete Example
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+
+/**
+ * Check if user is premium based on custom criteria
+ */
+engine.registerOperator('isPremiumUser', (args, context) => {
+  const [userPath] = args;
+  const user = engine.resolvePath(context, userPath);
+
+  if (!user) return false;
+
+  // Premium if:
+  // - Subscribed to premium OR
+  // - VIP member OR
+  // - Loyalty points > 1000
+  return (
+    user.subscription === 'premium' ||
+    user.vipMember === true ||
+    (user.loyaltyPoints && user.loyaltyPoints > 1000)
+  );
+});
+
+/**
+ * Check if value is within percentage range
+ */
+engine.registerOperator('withinPercent', (args, context) => {
+  const [valuePath, targetPath, percentPath] = args;
+
+  const value = engine.resolvePath(context, valuePath);
+  const target = engine.resolvePath(context, targetPath);
+  const percent = engine.resolvePath(context, percentPath);
+
+  if (typeof value !== 'number' || typeof target !== 'number') {
+    throw new Error('Value and target must be numbers');
+  }
+
+  const threshold = target * (percent / 100);
+  return Math.abs(value - target) <= threshold;
+});
+
+// Usage
+const rules = {
+  premiumAccess: { isPremiumUser: ['user'] },
+
+  priceMatch: {
+    and: [
+      { withinPercent: ['currentPrice', 'originalPrice', 5] },
+      { isPremiumUser: ['user'] }
+    ]
+  }
+};
+
+const context = {
+  user: {
+    subscription: 'premium',
+    vipMember: false,
+    loyaltyPoints: 500
+  },
+  currentPrice: 95,
+  originalPrice: 100
+};
+
+console.log(engine.evaluateExpr(rules.premiumAccess, context));
+// { success: true }
+
+console.log(engine.evaluateExpr(rules.priceMatch, context));
+// { success: true }
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine API" icon="gear" href="/api-reference/rule-engine">
+    registerOperator() method
+  </Card>
+  <Card title="Built-in Operators" icon="list" href="/operators/overview">
+    See all operators
+  </Card>
+  <Card title="Testing" icon="flask" href="/guides/testing">
+    Test your operators
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-rules">
+    Usage examples
+  </Card>
+</CardGroup>
