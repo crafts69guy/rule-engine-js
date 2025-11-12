@@ -1,0 +1,197 @@
+---
+title: 'Installation'
+description: 'Install Rule Engine JS in your project'
+---
+
+## Package Installation
+
+Install Rule Engine JS using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install rule-engine-js
+```
+
+```bash yarn
+yarn add rule-engine-js
+```
+
+```bash pnpm
+pnpm add rule-engine-js
+```
+
+</CodeGroup>
+
+## Verify Installation
+
+After installation, verify that the package is correctly installed:
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+console.log('Rule Engine JS installed successfully!');
+```
+
+## Import Methods
+
+Rule Engine JS supports multiple import formats:
+
+<Tabs>
+  <Tab title="ES Modules (Recommended)">
+    ```javascript
+    import { createRuleEngine, createRuleHelpers, StatefulRuleEngine } from 'rule-engine-js';
+
+    const engine = createRuleEngine();
+    const rules = createRuleHelpers();
+    ```
+  </Tab>
+
+  <Tab title="CommonJS">
+    ```javascript
+    const { createRuleEngine, createRuleHelpers, StatefulRuleEngine } = require('rule-engine-js');
+
+    const engine = createRuleEngine();
+    const rules = createRuleHelpers();
+    ```
+  </Tab>
+
+  <Tab title="Browser (UMD)">
+    ```html
+    <script src="node_modules/rule-engine-js/dist/index.min.js"></script>
+    <script>
+      const { createRuleEngine, createRuleHelpers } = RuleEngineJS;
+      const engine = createRuleEngine();
+      const rules = createRuleHelpers();
+    </script>
+    ```
+  </Tab>
+</Tabs>
+
+## TypeScript Support
+
+Rule Engine JS includes TypeScript type definitions out of the box. No additional `@types` package is needed.
+
+```typescript
+import { createRuleEngine, RuleEngine, RuleExpression } from 'rule-engine-js';
+
+const engine: RuleEngine = createRuleEngine();
+
+const rule: RuleExpression = {
+  and: [
+    { gte: ['age', 18] },
+    { eq: ['role', 'admin'] }
+  ]
+};
+
+const result = engine.evaluateExpr(rule, { age: 25, role: 'admin' });
+```
+
+## Browser Compatibility
+
+<Info>
+Rule Engine JS works in all modern browsers that support ES6. For older browsers, use a transpiler like Babel.
+</Info>
+
+### Minimum Browser Versions
+
+- Chrome: 60+
+- Firefox: 60+
+- Safari: 12+
+- Edge: 79+
+
+### Browser Bundle
+
+For browser usage, use the pre-built UMD bundle:
+
+```html
+<!-- Development -->
+<script src="https://unpkg.com/rule-engine-js/dist/index.js"></script>
+
+<!-- Production (minified) -->
+<script src="https://unpkg.com/rule-engine-js/dist/index.min.js"></script>
+```
+
+## Node.js Compatibility
+
+<Check>
+Rule Engine JS supports Node.js versions 16 and above.
+</Check>
+
+### Minimum Node.js Versions
+
+- Node.js: 16.x, 18.x, 20.x, 22.x+
+- Recommended: 18.x or higher
+
+## Framework Integration
+
+<CardGroup cols={2}>
+  <Card title="React" icon="react">
+    Works seamlessly with React applications. Use hooks for reactive rule evaluation.
+  </Card>
+
+  <Card title="Vue" icon="vuejs">
+    Compatible with Vue 2 and Vue 3. Use computed properties for reactive rules.
+  </Card>
+
+  <Card title="Angular" icon="angular">
+    Integrates with Angular services and dependency injection.
+  </Card>
+
+  <Card title="Express" icon="node">
+    Perfect for server-side validation and middleware logic.
+  </Card>
+</CardGroup>
+
+## Bundle Sizes
+
+Rule Engine JS is designed to be lightweight:
+
+| Format | Size | Gzipped |
+|--------|------|---------|
+| ESM    | ~45KB | ~12KB |
+| UMD    | ~48KB | ~13KB |
+| UMD (minified) | ~22KB | ~8KB |
+
+<Tip>
+Use the ESM format for tree-shaking and optimal bundle size in modern build tools.
+</Tip>
+
+## Development Dependencies
+
+No additional dependencies are required for Rule Engine JS itself. However, for development you might want:
+
+<AccordionGroup>
+  <Accordion title="Testing">
+    ```bash
+    npm install --save-dev jest @types/jest
+    ```
+    Rule Engine JS is designed to be easily testable with any testing framework.
+  </Accordion>
+
+  <Accordion title="TypeScript">
+    ```bash
+    npm install --save-dev typescript @types/node
+    ```
+    Type definitions are included in the package, but you'll need the TypeScript compiler for development.
+  </Accordion>
+
+  <Accordion title="Linting">
+    ```bash
+    npm install --save-dev eslint prettier
+    ```
+    Standard JavaScript linting tools work great with Rule Engine JS code.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with your first rule
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/essentials/rule-engine">
+    Learn about engine architecture
+  </Card>
+</CardGroup>

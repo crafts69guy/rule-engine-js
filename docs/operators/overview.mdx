@@ -1,0 +1,341 @@
+---
+title: 'Operators Overview'
+description: 'Complete reference of all built-in operators'
+---
+
+## Available Operators
+
+Rule Engine JS includes 20+ built-in operators organized into 7 categories:
+
+<CardGroup cols={3}>
+  <Card title="Comparison" icon="equals" href="/operators/comparison">
+    6 operators
+
+    `eq`, `neq`, `gt`, `gte`, `lt`, `lte`
+  </Card>
+
+  <Card title="Logical" icon="circle-nodes" href="/operators/logical">
+    3 operators
+
+    `and`, `or`, `not`
+  </Card>
+
+  <Card title="String" icon="text" href="/operators/string">
+    4 operators
+
+    `contains`, `startsWith`, `endsWith`, `regex`
+  </Card>
+
+  <Card title="Array" icon="list" href="/operators/array">
+    2 operators
+
+    `in`, `notIn`
+  </Card>
+
+  <Card title="Numeric" icon="hashtag" href="/operators/numeric">
+    1 operator
+
+    `between`
+  </Card>
+
+  <Card title="Special" icon="star" href="/operators/special">
+    2 operators
+
+    `isNull`, `isNotNull`
+  </Card>
+
+  <Card title="State" icon="chart-line" href="/operators/state">
+    6 operators
+
+    `changed`, `changedBy`, `changedFrom`, `changedTo`, `increased`, `decreased`
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+<AccordionGroup>
+  <Accordion title="Comparison Operators">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `eq` | Equals | `{ eq: ['age', 18] }` |
+    | `neq` | Not equals | `{ neq: ['status', 'inactive'] }` |
+    | `gt` | Greater than | `{ gt: ['score', 90] }` |
+    | `gte` | Greater than or equal | `{ gte: ['age', 18] }` |
+    | `lt` | Less than | `{ lt: ['temperature', 100] }` |
+    | `lte` | Less than or equal | `{ lte: ['price', 50] }` |
+  </Accordion>
+
+  <Accordion title="Logical Operators">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `and` | All conditions must be true | `{ and: [rule1, rule2] }` |
+    | `or` | At least one condition must be true | `{ or: [rule1, rule2] }` |
+    | `not` | Negates a condition | `{ not: [rule] }` |
+  </Accordion>
+
+  <Accordion title="String Operators">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `contains` | String contains substring | `{ contains: ['name', 'John'] }` |
+    | `startsWith` | String starts with prefix | `{ startsWith: ['email', 'admin'] }` |
+    | `endsWith` | String ends with suffix | `{ endsWith: ['file', '.pdf'] }` |
+    | `regex` | Matches regular expression | `{ regex: ['email', '^[a-z]+@'] }` |
+  </Accordion>
+
+  <Accordion title="Array Operators">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `in` | Value exists in array | `{ in: ['admin', 'roles'] }` |
+    | `notIn` | Value does not exist in array | `{ notIn: ['banned', 'users'] }` |
+  </Accordion>
+
+  <Accordion title="Numeric Operators">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `between` | Value is within range (inclusive) | `{ between: ['age', [18, 65]] }` |
+  </Accordion>
+
+  <Accordion title="Special Operators">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `isNull` | Value is null or undefined | `{ isNull: ['optionalField'] }` |
+    | `isNotNull` | Value is not null/undefined | `{ isNotNull: ['requiredField'] }` |
+  </Accordion>
+
+  <Accordion title="State Change Operators (Stateful Engine Only)">
+    | Operator | Description | Example |
+    |----------|-------------|---------|
+    | `changed` | Value changed from previous evaluation | `{ changed: ['status'] }` |
+    | `changedBy` | Numeric value changed by amount | `{ changedBy: ['price', 10] }` |
+    | `changedFrom` | Changed from specific value | `{ changedFrom: ['status', 'pending'] }` |
+    | `changedTo` | Changed to specific value | `{ changedTo: ['status', 'active'] }` |
+    | `increased` | Numeric value increased | `{ increased: ['temperature'] }` |
+    | `decreased` | Numeric value decreased | `{ decreased: ['stock'] }` |
+  </Accordion>
+</AccordionGroup>
+
+## Operator Syntax
+
+All operators follow a consistent syntax pattern:
+
+```javascript
+{
+  operatorName: [argument1, argument2, ...]
+}
+```
+
+### Single-Argument Operators
+
+```javascript
+// isNull - checks if field is null/undefined
+{ isNull: ['optionalField'] }
+
+// not - negates a condition
+{ not: [{ eq: ['status', 'active'] }] }
+```
+
+### Two-Argument Operators
+
+```javascript
+// eq - equals comparison
+{ eq: ['age', 18] }
+
+// contains - substring check
+{ contains: ['name', 'John'] }
+
+// in - array membership
+{ in: ['admin', 'roles'] }
+```
+
+### Multi-Argument Operators
+
+```javascript
+// and - combine multiple conditions
+{ and: [
+  { gte: ['age', 18] },
+  { eq: ['role', 'admin'] },
+  { in: ['write', 'permissions'] }
+]}
+
+// between - range check
+{ between: ['age', [18, 65]] }
+```
+
+## Using Rule Helpers
+
+The Rule Helpers API provides a more readable way to build rules:
+
+<Tabs>
+  <Tab title="Direct JSON">
+    ```javascript
+    const rule = {
+      and: [
+        { gte: ['age', 18] },
+        { eq: ['role', 'admin'] },
+        { contains: ['email', '@company.com'] }
+      ]
+    };
+    ```
+  </Tab>
+
+  <Tab title="Rule Helpers">
+    ```javascript
+    import { createRuleHelpers } from 'rule-engine-js';
+
+    const rules = createRuleHelpers();
+
+    const rule = rules.and(
+      rules.gte('age', 18),
+      rules.eq('role', 'admin'),
+      rules.contains('email', '@company.com')
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Type Coercion
+
+By default, operators perform type coercion for flexibility:
+
+```javascript
+// These all pass with type coercion
+{ eq: ['age', '25'] }      // Compares 25 == '25' (true)
+{ gte: ['score', '90'] }   // Compares 95 >= '90' (true)
+{ contains: ['code', 123] } // Converts 123 to string
+
+// Strict mode disables coercion
+const strictEngine = createRuleEngine({ strict: true });
+{ eq: ['age', '25'] }      // Compares 25 === '25' (false)
+```
+
+<Warning>
+Use strict mode in production for type safety: `createRuleEngine({ strict: true })`
+</Warning>
+
+## Operator Composition
+
+Operators can be nested and combined for complex logic:
+
+```javascript
+// Complex nested rule
+const rule = {
+  and: [
+    // Age check
+    { between: ['age', [18, 65]] },
+
+    // Role and permissions
+    { or: [
+      { eq: ['role', 'admin'] },
+      { and: [
+        { eq: ['role', 'editor'] },
+        { in: ['publish', 'permissions'] }
+      ]}
+    ]},
+
+    // Email validation
+    { and: [
+      { isNotNull: ['email'] },
+      { regex: ['email', '^[^@]+@[^@]+\\.[^@]+$'] }
+    ]}
+  ]
+};
+```
+
+## Custom Operators
+
+Extend the engine with custom business logic:
+
+```javascript
+// Register custom operator
+engine.registerOperator('isBusinessHours', (args, context) => {
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay();
+
+  // Monday-Friday, 9 AM - 5 PM
+  return day >= 1 && day <= 5 && hour >= 9 && hour < 17;
+});
+
+// Use like built-in operators
+const rule = {
+  and: [
+    { isBusinessHours: [] },
+    { eq: ['support.available', true] }
+  ]
+};
+```
+
+<Tip>
+Custom operators work seamlessly with all built-in operators and the Rule Helpers API.
+</Tip>
+
+## Performance Considerations
+
+<CardGroup cols={2}>
+  <Card title="Operator Order" icon="arrow-down-1-9">
+    Place faster operators first in `and` conditions to fail early
+
+    ```javascript
+    rules.and(
+      rules.eq('active', true),  // Fast
+      rules.regex('email', pattern) // Slower
+    )
+    ```
+  </Card>
+
+  <Card title="Avoid Deep Nesting" icon="layer-group">
+    Deeply nested rules are harder to cache and slower to evaluate
+
+    ```javascript
+    // Prefer flat over deeply nested
+    rules.or(cond1, cond2, cond3)
+    ```
+  </Card>
+
+  <Card title="Cache-Friendly Paths" icon="database">
+    Use consistent path names to maximize cache hits
+
+    ```javascript
+    // Good - consistent
+    rules.eq('user.email', value)
+
+    // Avoid - dynamic paths
+    rules.eq(`${prefix}.email`, value)
+    ```
+  </Card>
+
+  <Card title="Batch Similar Rules" icon="boxes-stacked">
+    Group related rules for better cache utilization
+
+    ```javascript
+    const userRules = {
+      isActive: rules.eq('status', 'active'),
+      isAdmin: rules.eq('role', 'admin'),
+      hasEmail: rules.isNotNull('email')
+    }
+    ```
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Comparison" icon="equals" href="/operators/comparison">
+    Detailed comparison operators
+  </Card>
+  <Card title="Logical" icon="circle-nodes" href="/operators/logical">
+    Detailed logical operators
+  </Card>
+  <Card title="String" icon="text" href="/operators/string">
+    Detailed string operators
+  </Card>
+  <Card title="Array" icon="list" href="/operators/array">
+    Detailed array operators
+  </Card>
+  <Card title="State" icon="chart-line" href="/operators/state">
+    Detailed state operators
+  </Card>
+  <Card title="Custom Operators" icon="puzzle-piece" href="/guides/custom-operators">
+    Create custom operators
+  </Card>
+</CardGroup>

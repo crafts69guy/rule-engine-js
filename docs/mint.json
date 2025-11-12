@@ -1,0 +1,128 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Rule Engine JS",
+  "logo": {
+    "dark": "/images/logo.webp",
+    "light": "/images/logo.webp"
+  },
+  "favicon": "/images/favicon.svg",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373",
+    "anchors": {
+      "from": "#0D9373",
+      "to": "#07C983"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:crafts69.guy@gmail.com"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "GitHub",
+    "url": "https://github.com/crafts69guy/rule-engine-js"
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    },
+    {
+      "name": "Examples",
+      "url": "examples"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "Documentation",
+      "icon": "book-open-cover",
+      "url": "https://mintlify.com/docs"
+    },
+    {
+      "name": "Blog",
+      "icon": "newspaper",
+      "url": "https://dev.to/crafts69guy"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": ["introduction", "quickstart", "installation"]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": [
+        "essentials/rule-engine",
+        "essentials/stateful-engine",
+        "essentials/path-resolver",
+        "essentials/operators"
+      ]
+    },
+    {
+      "group": "Operators",
+      "pages": [
+        "operators/overview",
+        "operators/comparison",
+        "operators/logical",
+        "operators/string",
+        "operators/array",
+        "operators/numeric",
+        "operators/special",
+        "operators/state"
+      ]
+    },
+    {
+      "group": "Guides",
+      "pages": [
+        "guides/performance",
+        "guides/security",
+        "guides/testing",
+        "guides/deployment",
+        "guides/custom-operators"
+      ]
+    },
+    {
+      "group": "API Documentation",
+      "pages": [
+        "api-reference/introduction",
+        "api-reference/rule-engine",
+        "api-reference/stateful-engine",
+        "api-reference/path-resolver",
+        "api-reference/rule-helpers"
+      ]
+    },
+    {
+      "group": "Examples",
+      "pages": [
+        "examples/basic-rules",
+        "examples/stateful-rules",
+        "examples/complex-validation",
+        "examples/real-world-scenarios"
+      ]
+    },
+    {
+      "group": "Contributing",
+      "pages": ["changelog", "contributing"]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/crafts69guy/rule-engine-js",
+    "twitter": "https://x.com/crafts69guy"
+  },
+  "search": {
+    "prompt": "Search Rule Engine JS documentation..."
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
+  "analytics": {
+    "posthog": {
+      "apiKey": "phc_YOUR_API_KEY"
+    }
+  }
+}

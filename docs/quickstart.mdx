@@ -1,0 +1,510 @@
+---
+title: 'Quick Start'
+description: 'Get up and running with Rule Engine JS in under 5 minutes'
+---
+
+## Installation
+
+Get started by installing the package via npm, yarn, or pnpm:
+
+<CodeGroup>
+
+```bash npm
+npm install rule-engine-js
+```
+
+```bash yarn
+yarn add rule-engine-js
+```
+
+```bash pnpm
+pnpm add rule-engine-js
+```
+
+</CodeGroup>
+
+## Your First Rule
+
+Let's create and evaluate your first rule in just a few steps:
+
+<Steps>
+  <Step title="Import the library">
+    ```javascript
+    import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+    ```
+  </Step>
+
+  <Step title="Create engine and helpers">
+    ```javascript
+    const engine = createRuleEngine();
+    const rules = createRuleHelpers();
+    ```
+  </Step>
+
+  <Step title="Define your data">
+    ```javascript
+    const user = {
+      name: 'John Doe',
+      age: 25,
+      role: 'admin',
+      email: 'john@company.com',
+    };
+    ```
+  </Step>
+
+  <Step title="Create and evaluate a rule">
+    ```javascript
+    const isAdult = rules.gte('age', 18);
+    const result = engine.evaluateExpr(isAdult, user);
+    console.log(result.success); // true
+    ```
+  </Step>
+</Steps>
+
+<Check>Congratulations! You just created and evaluated your first rule.</Check>
+
+## Building Complex Rules
+
+### Combining Multiple Conditions
+
+Combine multiple conditions using logical operators to create powerful validation logic:
+
+```javascript
+// Check if user can access admin panel
+const canAccessAdmin = rules.and(
+  rules.gte('age', 18),              // Must be adult
+  rules.eq('role', 'admin'),         // Must be admin
+  rules.validation.email('email')    // Must have valid email
+);
+
+const result = engine.evaluateExpr(canAccessAdmin, user);
+console.log(result.success); // true
+```
+
+### Working with Arrays
+
+Check array membership and combine with other conditions:
+
+```javascript
+const userData = {
+  name: 'Jane Smith',
+  permissions: ['read', 'write', 'delete'],
+  tags: ['premium', 'verified'],
+};
+
+// Check if user has write permission
+const hasWriteAccess = rules.in('write', 'permissions');
+
+// Check if user is premium
+const isPremium = rules.in('premium', 'tags');
+
+// Combine them
+const premiumWriteAccess = rules.and(hasWriteAccess, isPremium);
+
+console.log(engine.evaluateExpr(premiumWriteAccess, userData).success); // true
+```
+
+## Dynamic Field Comparison
+
+Compare values from different parts of your data structure:
+
+<Tabs>
+  <Tab title="Basic Comparison">
+    ```javascript
+    const orderData = {
+      order: {
+        total: 150,
+        subtotal: 130,
+        tax: 20,
+      },
+      user: {
+        creditLimit: 1000,
+        currentBalance: 50,
+      },
+    };
+
+    // Compare fields across different paths
+    const validation = rules.and(
+      rules.field.lessThan('order.total', 'user.creditLimit'),
+      rules.lte('order.total', 200)
+    );
+    ```
+  </Tab>
+
+  <Tab title="With Calculated Fields">
+    ```javascript
+    // Better approach with calculated fields
+    const enhancedOrderData = {
+      ...orderData,
+      calculated: {
+        expectedTotal: orderData.order.subtotal + orderData.order.tax,
+        availableCredit: orderData.user.creditLimit - orderData.user.currentBalance,
+      },
+    };
+
+    const betterValidation = rules.and(
+      rules.field.equals('order.total', 'calculated.expectedTotal'),
+      rules.field.lessThan('order.total', 'calculated.availableCredit')
+    );
+
+    console.log(engine.evaluateExpr(betterValidation, enhancedOrderData).success);
+    ```
+  </Tab>
+</Tabs>
+
+## Common Patterns
+
+<AccordionGroup>
+  <Accordion title="Form Validation" icon="check-circle">
+    ```javascript
+    const formData = {
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john@example.com',
+      age: 25,
+      password: 'SecurePass123!',
+      confirmPassword: 'SecurePass123!',
+      terms: true,
+    };
+
+    const formValidation = rules.and(
+      // Required fields
+      rules.validation.required('firstName'),
+      rules.validation.required('lastName'),
+
+      // Email format
+      rules.validation.email('email'),
+
+      // Age range
+      rules.validation.ageRange('age', 18, 120),
+
+      // Password strength
+      rules.and(
+        rules.gte('password.length', 8),
+        rules.regex('password', '(?=.*[0-9])(?=.*[a-zA-Z])')
+      ),
+
+      // Password confirmation
+      rules.field.equals('password', 'confirmPassword'),
+
+      // Terms acceptance
+      rules.isTrue('terms')
+    );
+
+    const isFormValid = engine.evaluateExpr(formValidation, formData);
+    console.log('Form is valid:', isFormValid.success);
+    ```
+  </Accordion>
+
+  <Accordion title="User Access Control" icon="shield">
+    ```javascript
+    const accessContext = {
+      user: {
+        role: 'editor',
+        department: 'marketing',
+        permissions: ['read', 'write'],
+        isActive: true,
+      },
+      resource: {
+        type: 'document',
+        department: 'marketing',
+        classification: 'internal',
+      },
+    };
+
+    const accessRule = rules.and(
+      // User must be active
+      rules.isTrue('user.isActive'),
+
+      // Role-based access
+      rules.or(
+        rules.eq('user.role', 'admin'), // Admins can access everything
+        rules.and(
+          // Non-admins need department match and permissions
+          rules.field.equals('user.department', 'resource.department'),
+          rules.in('write', 'user.permissions'),
+          rules.in('resource.classification', ['public', 'internal'])
+        )
+      )
+    );
+
+    const hasAccess = engine.evaluateExpr(accessRule, accessContext);
+    console.log('Has access:', hasAccess.success);
+    ```
+  </Accordion>
+
+  <Accordion title="E-commerce Pricing" icon="tag">
+    ```javascript
+    const customerData = {
+      customer: {
+        type: 'vip',
+        loyaltyPoints: 1200,
+        isFirstTime: false,
+      },
+      order: {
+        subtotal: 150,
+        items: 3,
+        category: 'electronics',
+      },
+    };
+
+    const discountEligibility = rules.or(
+      // VIP customers with minimum order
+      rules.and(
+        rules.eq('customer.type', 'vip'),
+        rules.gte('order.subtotal', 100)
+      ),
+
+      // High loyalty points
+      rules.gte('customer.loyaltyPoints', 1000),
+
+      // Large orders
+      rules.gte('order.subtotal', 200),
+
+      // First-time customer bonus
+      rules.and(
+        rules.isTrue('customer.isFirstTime'),
+        rules.gte('order.subtotal', 50)
+      )
+    );
+
+    const qualifiesForDiscount = engine.evaluateExpr(discountEligibility, customerData);
+    console.log('Qualifies for discount:', qualifiesForDiscount.success);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Working with Different Data Types
+
+<CardGroup cols={2}>
+  <Card title="Strings" icon="text">
+    ```javascript
+    const textData = {
+      title: 'JavaScript Tutorial',
+      description: 'Learn JavaScript programming',
+      filename: 'tutorial.pdf',
+      email: 'user@example.com',
+    };
+
+    const stringRules = rules.and(
+      rules.contains('title', 'JavaScript'),
+      rules.startsWith('filename', 'tutorial'),
+      rules.endsWith('filename', '.pdf'),
+      rules.validation.email('email')
+    );
+    ```
+  </Card>
+
+  <Card title="Numbers" icon="hashtag">
+    ```javascript
+    const numericData = {
+      price: 99.99,
+      discount: 10,
+      quantity: 5,
+      rating: 4.5,
+    };
+
+    const numericRules = rules.and(
+      rules.between('price', [10, 200]),
+      rules.lte('discount', 20),
+      rules.gte('quantity', 1),
+      rules.gt('rating', 4.0)
+    );
+    ```
+  </Card>
+
+  <Card title="Arrays" icon="list">
+    ```javascript
+    const arrayData = {
+      skills: ['javascript', 'python', 'react'],
+      roles: ['developer', 'team-lead'],
+      scores: [85, 92, 78],
+    };
+
+    const arrayRules = rules.and(
+      rules.in('javascript', 'skills'),
+      rules.notIn('admin', 'roles')
+    );
+    ```
+  </Card>
+
+  <Card title="Nested Objects" icon="sitemap">
+    ```javascript
+    const nestedData = {
+      user: {
+        profile: {
+          name: 'John Doe',
+          settings: {
+            theme: 'dark',
+            notifications: true,
+          },
+        },
+        account: {
+          status: 'active',
+          plan: 'premium',
+        },
+      },
+    };
+
+    const nestedRules = rules.and(
+      rules.eq('user.profile.name', 'John Doe'),
+      rules.eq('user.profile.settings.theme', 'dark'),
+      rules.isTrue('user.profile.settings.notifications'),
+      rules.eq('user.account.status', 'active')
+    );
+    ```
+  </Card>
+</CardGroup>
+
+## Configuration Options
+
+Customize the engine behavior with configuration options:
+
+<Tabs>
+  <Tab title="Basic Configuration">
+    ```javascript
+    const engine = createRuleEngine({
+      strict: true,          // Enforce strict type checking
+      maxDepth: 10,          // Maximum rule nesting depth
+      enableCache: true,     // Enable performance caching
+      maxCacheSize: 1000,    // Cache size limit
+    });
+    ```
+  </Tab>
+
+  <Tab title="Security Settings">
+    ```javascript
+    const secureEngine = createRuleEngine({
+      allowPrototypeAccess: false,  // Block prototype access
+      strict: true,                  // Strict type checking
+      maxDepth: 10,                  // Prevent deep recursion
+      maxOperators: 100,             // Limit complexity
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Start Simple" icon="seedling">
+    Begin with simple rules and gradually build complexity. Test each component before combining.
+  </Card>
+
+  <Card title="Descriptive Names" icon="tag">
+    Use clear, descriptive variable names that indicate the purpose of each rule.
+  </Card>
+
+  <Card title="Test Thoroughly" icon="flask">
+    Test rules with various data scenarios including edge cases and invalid inputs.
+  </Card>
+
+  <Card title="Handle Missing Data" icon="circle-exclamation">
+    Always check for data existence before accessing nested properties.
+  </Card>
+</CardGroup>
+
+<Warning>
+Always validate user input before using it in rules to prevent security vulnerabilities and unexpected behavior.
+</Warning>
+
+## Debugging Your Rules
+
+Understanding rule evaluation results helps you debug issues quickly:
+
+```javascript
+const debugRule = rules.and(
+  rules.eq('role', 'admin'),
+  rules.gte('age', 18)
+);
+
+const result = engine.evaluateExpr(debugRule, { role: 'user', age: 25 });
+
+if (!result.success) {
+  console.log('Rule failed!');
+  console.log('Failed operator:', result.operator);
+  console.log('Error message:', result.error);
+  console.log('Context:', result.details);
+}
+```
+
+<Tip>
+Test individual conditions separately before combining them to identify which specific condition is failing.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="book" href="/essentials/rule-engine">
+    Learn about the engine architecture and advanced features
+  </Card>
+  <Card title="Operators Reference" icon="wrench" href="/operators/overview">
+    Explore all available operators and their usage
+  </Card>
+  <Card title="Performance Guide" icon="gauge-high" href="/guides/performance">
+    Optimize your rules for maximum performance
+  </Card>
+  <Card title="Security Guide" icon="lock" href="/guides/security">
+    Learn security best practices
+  </Card>
+</CardGroup>
+
+## Common Questions
+
+<AccordionGroup>
+  <Accordion title="Can I save rules to a database?">
+    Yes! Rules are JSON objects that can be easily stored and retrieved:
+
+    ```javascript
+    // Save to database
+    const rule = rules.and(rules.eq('role', 'admin'), rules.gte('age', 18));
+    await db.rules.save({ name: 'admin-access', rule: rule });
+
+    // Load from database
+    const savedRule = await db.rules.findByName('admin-access');
+    const result = engine.evaluateExpr(savedRule.rule, userData);
+    ```
+  </Accordion>
+
+  <Accordion title="Can I use rules in React components?">
+    Absolutely! Rules work great for dynamic UI logic:
+
+    ```javascript
+    function UserProfile({ user }) {
+      const canEditProfile = engine.evaluateExpr(
+        rules.or(
+          rules.eq('id', user.id),
+          rules.eq('role', 'admin')
+        ),
+        { ...user, id: currentUser.id }
+      );
+
+      return (
+        <div>
+          <h1>{user.name}</h1>
+          {canEditProfile.success && <button>Edit Profile</button>}
+        </div>
+      );
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="How do I optimize performance?">
+    Follow these key practices:
+
+    ```javascript
+    // 1. Reuse engine instances
+    const globalEngine = createRuleEngine();
+
+    // 2. Order rules by speed (fastest first)
+    const optimizedRule = rules.and(
+      rules.eq('active', true),         // Fast boolean check
+      rules.gte('age', 18),             // Fast numeric check
+      rules.validation.email('email')    // Slower regex check
+    );
+
+    // 3. Use caching effectively
+    const cachedEngine = createRuleEngine({ maxCacheSize: 2000 });
+    ```
+  </Accordion>
+</AccordionGroup>

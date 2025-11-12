@@ -1,0 +1,293 @@
+---
+title: 'PathResolver API'
+description: 'Safe path resolution with security features'
+icon: 'sitemap'
+---
+
+## Overview
+
+PathResolver provides secure dot-notation path resolution with caching and prototype pollution protection.
+
+<Info>
+**Note:** PathResolver is used internally by RuleEngine. You typically use `engine.resolvePath()` instead of accessing PathResolver directly.
+</Info>
+
+---
+
+## resolvePath()
+
+Resolve a dot-notation path to a value.
+
+```javascript
+const value = engine.resolvePath(context, path, defaultValue);
+```
+
+### Parameters
+
+<ParamField path="context" type="object" required>
+  Object to resolve path in
+</ParamField>
+
+<ParamField path="path" type="string" required>
+  Dot-notation path (e.g., 'user.profile.name')
+</ParamField>
+
+<ParamField path="defaultValue" type="any" optional>
+  Value to return if path doesn't exist
+</ParamField>
+
+### Returns
+
+Resolved value or `defaultValue` if path doesn't exist.
+
+### Examples
+
+<Tabs>
+  <Tab title="Basic">
+    ```javascript
+    const data = {
+      user: {
+        name: 'John',
+        profile: {
+          age: 25,
+          email: 'john@example.com'
+        }
+      }
+    };
+
+    engine.resolvePath(data, 'user.name');
+    // 'John'
+
+    engine.resolvePath(data, 'user.profile.age');
+    // 25
+
+    engine.resolvePath(data, 'user.profile.email');
+    // 'john@example.com'
+    ```
+  </Tab>
+
+  <Tab title="Missing Paths">
+    ```javascript
+    // Path doesn't exist
+    engine.resolvePath(data, 'user.phone');
+    // undefined
+
+    // With default value
+    engine.resolvePath(data, 'user.phone', null);
+    // null
+
+    engine.resolvePath(data, 'user.country', 'US');
+    // 'US'
+    ```
+  </Tab>
+
+  <Tab title="Arrays">
+    ```javascript
+    const data = {
+      users: [
+        { name: 'John', age: 25 },
+        { name: 'Jane', age: 30 }
+      ]
+    };
+
+    engine.resolvePath(data, 'users.0.name');
+    // 'John'
+
+    engine.resolvePath(data, 'users.1.age');
+    // 30
+    ```
+  </Tab>
+
+  <Tab title="Nested Objects">
+    ```javascript
+    const data = {
+      company: {
+        departments: {
+          engineering: {
+            team: {
+              lead: 'John Doe'
+            }
+          }
+        }
+      }
+    };
+
+    engine.resolvePath(data, 'company.departments.engineering.team.lead');
+    // 'John Doe'
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Security Features
+
+### Prototype Pollution Protection
+
+PathResolver blocks dangerous paths by default:
+
+```javascript
+const data = {};
+
+// Blocked: prototype access
+engine.resolvePath(data, '__proto__');
+// undefined (blocked)
+
+engine.resolvePath(data, 'constructor');
+// undefined (blocked)
+
+engine.resolvePath(data, '__proto__.polluted');
+// undefined (blocked)
+```
+
+<Warning>
+**Never** set `allowPrototypeAccess: true` in production. It opens security vulnerabilities.
+</Warning>
+
+### Function Blocking
+
+Functions are blocked by default:
+
+```javascript
+const data = {
+  getName: function() { return 'John'; }
+};
+
+engine.resolvePath(data, 'getName');
+// undefined (blocked - it's a function)
+```
+
+---
+
+## Caching
+
+PathResolver caches resolutions for performance:
+
+```javascript
+// First call - cache miss
+engine.resolvePath(data, 'user.profile.name'); // Resolves and caches
+
+// Second call - cache hit (faster)
+engine.resolvePath(data, 'user.profile.name'); // Retrieved from cache
+```
+
+### Clear Cache
+
+```javascript
+engine.clearCache();
+// Clears both expression and path caches
+```
+
+---
+
+## Advanced Usage
+
+### Direct PathResolver Access
+
+```javascript
+// Access internal PathResolver (rare)
+const pathResolver = engine._internal.pathResolver;
+
+// Use NOT_FOUND symbol
+const value = pathResolver.resolve(data, path, pathResolver.NOT_FOUND);
+
+if (value === pathResolver.NOT_FOUND) {
+  console.log('Path does not exist');
+}
+```
+
+### Literal Values
+
+```javascript
+// resolveValueOrLiteral handles both paths and literals
+const pathResolver = engine._internal.pathResolver;
+
+pathResolver.resolveValueOrLiteral(data, 'user.name');
+// Resolves path → 'John'
+
+pathResolver.resolveValueOrLiteral(data, 'literal-string');
+// Returns literal → 'literal-string'
+
+pathResolver.resolveValueOrLiteral(data, 123);
+// Returns literal → 123
+```
+
+---
+
+## Configuration
+
+Configure via engine config:
+
+```javascript
+const engine = createRuleEngine({
+  allowPrototypeAccess: false,  // Block prototype (default: false)
+  maxCacheSize: 1000,           // Path cache size
+  enableCache: true             // Enable caching (default: true)
+});
+```
+
+---
+
+## Common Patterns
+
+<AccordionGroup>
+  <Accordion title="Safe Property Access">
+    ```javascript
+    // Instead of optional chaining
+    const email = data?.user?.profile?.email;
+
+    // Use resolvePath with default
+    const email = engine.resolvePath(data, 'user.profile.email', null);
+    ```
+  </Accordion>
+
+  <Accordion title="Dynamic Paths">
+    ```javascript
+    const fields = ['user.name', 'user.email', 'user.age'];
+
+    const values = fields.map(field =>
+      engine.resolvePath(data, field)
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Validation">
+    ```javascript
+    function validateRequired(data, paths) {
+      return paths.every(path => {
+        const value = engine.resolvePath(data, path);
+        return value !== null && value !== undefined;
+      });
+    }
+
+    validateRequired(data, ['user.name', 'user.email']);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Error Handling
+
+PathResolver doesn't throw errors - it returns `undefined` or `defaultValue`:
+
+```javascript
+// All return undefined (not errors)
+engine.resolvePath(null, 'path');
+engine.resolvePath(undefined, 'path');
+engine.resolvePath({}, 'nonexistent.path');
+engine.resolvePath({}, '__proto__'); // Blocked path
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine API" icon="gear" href="/api-reference/rule-engine">
+    Main engine API
+  </Card>
+  <Card title="Security Guide" icon="shield" href="/guides/security">
+    Security best practices
+  </Card>
+</CardGroup>

@@ -1,0 +1,433 @@
+---
+title: 'Testing Guide'
+description: 'Test your rules effectively'
+icon: 'flask'
+---
+
+## Testing Strategies
+
+<CardGroup cols={2}>
+  <Card title="Unit Tests" icon="vial">
+    Test individual rules
+  </Card>
+  <Card title="Integration Tests" icon="link">
+    Test rule combinations
+  </Card>
+  <Card title="Edge Cases" icon="triangle-exclamation">
+    Test boundary conditions
+  </Card>
+  <Card title="Performance Tests" icon="stopwatch">
+    Benchmark rule speed
+  </Card>
+</CardGroup>
+
+---
+
+## Unit Testing Rules
+
+Test each rule independently.
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+describe('User Access Rules', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = createRuleEngine();
+  });
+
+  test('admin has access', () => {
+    const rule = { eq: ['role', 'admin'] };
+    const user = { role: 'admin' };
+
+    const result = engine.evaluateExpr(rule, user);
+    expect(result.success).toBe(true);
+  });
+
+  test('guest does not have access', () => {
+    const rule = { eq: ['role', 'admin'] };
+    const user = { role: 'guest' };
+
+    const result = engine.evaluateExpr(rule, user);
+    expect(result.success).toBe(false);
+  });
+});
+```
+
+---
+
+## Testing Complex Rules
+
+```javascript
+describe('Complex Access Control', () => {
+  const accessRule = {
+    and: [
+      { gte: ['age', 18] },
+      { eq: ['status', 'active'] },
+      { in: ['write', 'permissions'] }
+    ]
+  };
+
+  test('passes with all conditions met', () => {
+    const user = {
+      age: 25,
+      status: 'active',
+      permissions: ['read', 'write']
+    };
+
+    expect(engine.evaluateExpr(accessRule, user).success).toBe(true);
+  });
+
+  test('fails when underage', () => {
+    const user = {
+      age: 16,
+      status: 'active',
+      permissions: ['read', 'write']
+    };
+
+    expect(engine.evaluateExpr(accessRule, user).success).toBe(false);
+  });
+
+  test('fails when inactive', () => {
+    const user = {
+      age: 25,
+      status: 'inactive',
+      permissions: ['read', 'write']
+    };
+
+    expect(engine.evaluateExpr(accessRule, user).success).toBe(false);
+  });
+});
+```
+
+---
+
+## Test Helpers
+
+Create reusable test utilities.
+
+```javascript
+// test-utils.js
+export function expectRuleToPass(engine, rule, context) {
+  const result = engine.evaluateExpr(rule, context);
+  expect(result.success).toBe(true);
+  return result;
+}
+
+export function expectRuleToFail(engine, rule, context) {
+  const result = engine.evaluateExpr(rule, context);
+  expect(result.success).toBe(false);
+  return result;
+}
+
+export function expectRuleError(engine, rule, context, errorMsg) {
+  const result = engine.evaluateExpr(rule, context);
+  expect(result.success).toBe(false);
+  expect(result.error).toContain(errorMsg);
+}
+
+// Usage
+import { expectRuleToPass, expectRuleToFail } from './test-utils';
+
+test('age verification', () => {
+  expectRuleToPass(engine, { gte: ['age', 18] }, { age: 25 });
+  expectRuleToFail(engine, { gte: ['age', 18] }, { age: 16 });
+});
+```
+
+---
+
+## Edge Cases
+
+Test boundary conditions and edge cases.
+
+```javascript
+describe('Edge Cases', () => {
+  test('null values', () => {
+    expectRuleToPass(engine, { isNull: ['field'] }, { field: null });
+  });
+
+  test('undefined values', () => {
+    expectRuleToPass(engine, { isNull: ['missing'] }, {});
+  });
+
+  test('empty strings', () => {
+    expectRuleToPass(engine, { eq: ['name', ''] }, { name: '' });
+  });
+
+  test('zero values', () => {
+    expectRuleToPass(engine, { eq: ['count', 0] }, { count: 0 });
+  });
+
+  test('negative numbers', () => {
+    expectRuleToPass(engine, { lt: ['balance', 0] }, { balance: -100 });
+  });
+
+  test('large numbers', () => {
+    expectRuleToPass(engine, { gte: ['max', 1000000] }, { max: 9999999 });
+  });
+});
+```
+
+---
+
+## Testing Stateful Rules
+
+```javascript
+import { StatefulRuleEngine } from 'rule-engine-js';
+
+describe('Stateful Rules', () => {
+  let statefulEngine;
+
+  beforeEach(() => {
+    const baseEngine = createRuleEngine();
+    statefulEngine = new StatefulRuleEngine(baseEngine);
+  });
+
+  test('detects value changes', () => {
+    const rule = { changed: ['temperature'] };
+
+    // First eval - no previous state
+    let result = statefulEngine.evaluate('temp', rule, { temperature: 20 });
+    expect(result.success).toBe(false);
+
+    // Second eval - changed
+    result = statefulEngine.evaluate('temp', rule, { temperature: 25 });
+    expect(result.success).toBe(true);
+
+    // Third eval - no change
+    result = statefulEngine.evaluate('temp', rule, { temperature: 25 });
+    expect(result.success).toBe(false);
+  });
+
+  test('emits triggered event', (done) => {
+    const rule = {
+      and: [
+        { gte: ['temperature', 30] },
+        { increased: ['temperature'] }
+      ]
+    };
+
+    statefulEngine.on('triggered', (event) => {
+      expect(event.ruleId).toBe('temp-alert');
+      done();
+    });
+
+    statefulEngine.evaluate('temp-alert', rule, { temperature: 20 });
+    statefulEngine.evaluate('temp-alert', rule, { temperature: 31 });
+  });
+});
+```
+
+---
+
+## Snapshot Testing
+
+Test rule structures don't change unexpectedly.
+
+```javascript
+import { createRuleHelpers } from 'rule-engine-js';
+
+describe('Rule Snapshots', () => {
+  const rules = createRuleHelpers();
+
+  test('admin access rule structure', () => {
+    const adminRule = rules.and(
+      rules.gte('age', 18),
+      rules.eq('role', 'admin'),
+      rules.in('write', 'permissions')
+    );
+
+    expect(adminRule).toMatchSnapshot();
+  });
+});
+```
+
+---
+
+## Performance Testing
+
+```javascript
+describe('Performance', () => {
+  test('evaluates 10k times under 100ms', () => {
+    const rule = {
+      and: [
+        { eq: ['status', 'active'] },
+        { gte: ['age', 18] }
+      ]
+    };
+    const data = { status: 'active', age: 25 };
+
+    const start = performance.now();
+    for (let i = 0; i < 10000; i++) {
+      engine.evaluateExpr(rule, data);
+    }
+    const duration = performance.now() - start;
+
+    expect(duration).toBeLessThan(100);
+  });
+
+  test('cache improves performance', () => {
+    const rule = { eq: ['value', 123] };
+    const data = { value: 123 };
+
+    // Warm up cache
+    engine.evaluateExpr(rule, data);
+
+    const metrics = engine.getMetrics();
+    expect(metrics.cacheHits).toBeGreaterThan(0);
+  });
+});
+```
+
+---
+
+## Testing Custom Operators
+
+```javascript
+describe('Custom Operators', () => {
+  beforeEach(() => {
+    engine.registerOperator('divisibleBy', (args, context) => {
+      const [path, divisor] = args;
+      const value = engine.resolvePath(context, path);
+      return value % divisor === 0;
+    });
+  });
+
+  test('divisibleBy operator works', () => {
+    expectRuleToPass(engine, { divisibleBy: ['age', 5] }, { age: 25 });
+    expectRuleToFail(engine, { divisibleBy: ['age', 5] }, { age: 23 });
+  });
+
+  test('handles invalid input', () => {
+    expectRuleError(
+      engine,
+      { divisibleBy: ['name', 5] },
+      { name: 'John' },
+      'numeric'
+    );
+  });
+});
+```
+
+---
+
+## Test Data Factories
+
+Create reusable test data.
+
+```javascript
+// test-data.js
+export const users = {
+  admin: {
+    role: 'admin',
+    age: 30,
+    status: 'active',
+    permissions: ['read', 'write', 'delete']
+  },
+
+  guest: {
+    role: 'guest',
+    age: 25,
+    status: 'active',
+    permissions: ['read']
+  },
+
+  minor: {
+    role: 'user',
+    age: 16,
+    status: 'active',
+    permissions: ['read']
+  }
+};
+
+// Usage
+import { users } from './test-data';
+
+test('admin access', () => {
+  expectRuleToPass(engine, adminRule, users.admin);
+});
+```
+
+---
+
+## Integration Testing
+
+Test rules in realistic scenarios.
+
+```javascript
+describe('E-commerce Rules', () => {
+  const checkoutRules = {
+    validCart: {
+      and: [
+        { gt: ['cart.items.length', 0] },
+        { gte: ['cart.total', 0.01] }
+      ]
+    },
+
+    canCheckout: {
+      and: [
+        { eq: ['user.verified', true] },
+        { isNotNull: ['user.paymentMethod'] }
+      ]
+    }
+  };
+
+  test('complete checkout flow', () => {
+    const context = {
+      cart: { items: [{ id: 1 }], total: 49.99 },
+      user: { verified: true, paymentMethod: 'card' }
+    };
+
+    const validCart = engine.evaluateExpr(checkoutRules.validCart, context);
+    const canCheckout = engine.evaluateExpr(checkoutRules.canCheckout, context);
+
+    expect(validCart.success).toBe(true);
+    expect(canCheckout.success).toBe(true);
+  });
+});
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Test All Paths">
+    Test both success and failure cases for every rule.
+  </Accordion>
+
+  <Accordion title="2. Test Edge Cases">
+    Test null, undefined, empty, zero, negative values.
+  </Accordion>
+
+  <Accordion title="3. Use Test Helpers">
+    Create reusable utilities like expectRuleToPass.
+  </Accordion>
+
+  <Accordion title="4. Test Stateful Changes">
+    Verify state transitions and events.
+  </Accordion>
+
+  <Accordion title="5. Performance Tests">
+    Ensure rules meet performance requirements.
+  </Accordion>
+
+  <Accordion title="6. Integration Tests">
+    Test rule combinations in realistic scenarios.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="RuleEngine API" icon="gear" href="/api-reference/rule-engine">
+    Engine API for testing
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/basic-rules">
+    More test examples
+  </Card>
+</CardGroup>

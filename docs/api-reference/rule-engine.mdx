@@ -1,0 +1,396 @@
+---
+title: 'RuleEngine API'
+description: 'Core rule evaluation engine API reference'
+icon: 'gear'
+---
+
+## createRuleEngine()
+
+Factory function to create a rule engine instance.
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+const engine = createRuleEngine(config);
+```
+
+### Parameters
+
+<ParamField path="config" type="object" optional>
+  <Expandable title="properties">
+    <ParamField path="strict" type="boolean" default="false">
+      Enable strict type checking (no coercion)
+    </ParamField>
+    <ParamField path="maxDepth" type="number" default="10">
+      Maximum rule nesting depth
+    </ParamField>
+    <ParamField path="enableCache" type="boolean" default="true">
+      Enable expression and path caching
+    </ParamField>
+    <ParamField path="maxCacheSize" type="number" default="500">
+      Maximum cache entries (LRU eviction)
+    </ParamField>
+    <ParamField path="maxOperators" type="number" default="100">
+      Maximum operators per rule
+    </ParamField>
+    <ParamField path="allowPrototypeAccess" type="boolean" default="false">
+      Allow prototype property access (unsafe)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Returns
+
+Engine instance with the following methods.
+
+---
+
+## evaluateExpr()
+
+Evaluate a rule expression against data.
+
+```javascript
+const result = engine.evaluateExpr(rule, context);
+```
+
+### Parameters
+
+<ParamField path="rule" type="object" required>
+  Rule expression object
+</ParamField>
+
+<ParamField path="context" type="object" required>
+  Data to evaluate against
+</ParamField>
+
+### Returns
+
+```typescript
+{
+  success: boolean;  // true if rule passed, false if failed or error
+  value?: any;       // Evaluation result value (for non-boolean rules)
+  error?: string;    // Error message if evaluation failed
+}
+```
+
+### Examples
+
+<Tabs>
+  <Tab title="Basic">
+    ```javascript
+    const rule = { gte: ['age', 18] };
+    const data = { age: 25 };
+
+    const result = engine.evaluateExpr(rule, data);
+    // { success: true }
+    ```
+  </Tab>
+
+  <Tab title="Complex">
+    ```javascript
+    const rule = {
+      and: [
+        { gte: ['age', 18] },
+        { eq: ['role', 'admin'] },
+        { in: ['write', 'permissions'] }
+      ]
+    };
+
+    const result = engine.evaluateExpr(rule, user);
+    ```
+  </Tab>
+
+  <Tab title="Error Handling">
+    ```javascript
+    const result = engine.evaluateExpr(rule, data);
+
+    if (!result.success) {
+      console.error('Rule failed:', result.error);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## registerOperator()
+
+Register a custom operator.
+
+```javascript
+engine.registerOperator(name, handler, options);
+```
+
+### Parameters
+
+<ParamField path="name" type="string" required>
+  Operator name (e.g., 'custom')
+</ParamField>
+
+<ParamField path="handler" type="function" required>
+  Operator implementation: `(args, context) => boolean`
+</ParamField>
+
+<ParamField path="options" type="object" optional>
+  <Expandable title="properties">
+    <ParamField path="allowOverwrite" type="boolean" default="false">
+      Allow overwriting existing operators
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example
+
+```javascript
+// Register custom operator
+engine.registerOperator('divisibleBy', (args, context) => {
+  const [left, right] = args;
+  const value = engine.resolvePath(context, left);
+  return value % right === 0;
+});
+
+// Use it
+engine.evaluateExpr({ divisibleBy: ['age', 5] }, { age: 25 });
+// { success: true }
+```
+
+---
+
+## getOperators()
+
+Get all registered operator names.
+
+```javascript
+const operators = engine.getOperators();
+// ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'and', 'or', ...]
+```
+
+### Returns
+
+`string[]` - Array of operator names
+
+---
+
+## getMetrics()
+
+Get performance metrics.
+
+```javascript
+const metrics = engine.getMetrics();
+```
+
+### Returns
+
+```typescript
+{
+  evaluations: number;  // Total evaluations
+  cacheHits: number;    // Cache hits
+  errors: number;       // Total errors
+  totalTime: number;    // Total time (ms)
+  avgTime: number;      // Average time per evaluation (ms)
+}
+```
+
+### Example
+
+```javascript
+console.log('Performance:', {
+  total: metrics.evaluations,
+  hitRate: (metrics.cacheHits / metrics.evaluations * 100).toFixed(1) + '%',
+  avgTime: metrics.avgTime.toFixed(2) + 'ms'
+});
+```
+
+---
+
+## getCacheStats()
+
+Get cache statistics.
+
+```javascript
+const stats = engine.getCacheStats();
+```
+
+### Returns
+
+```typescript
+{
+  expression: {
+    size: number;      // Current cache size
+    maxSize: number;   // Maximum cache size
+  } | null;
+  path: {
+    size: number;
+    maxSize: number;
+  }
+}
+```
+
+---
+
+## getConfig()
+
+Get current configuration.
+
+```javascript
+const config = engine.getConfig();
+// { strict: false, maxDepth: 10, enableCache: true, ... }
+```
+
+### Returns
+
+`object` - Current configuration
+
+---
+
+## clearCache()
+
+Clear all caches.
+
+```javascript
+engine.clearCache();
+```
+
+Clears both expression cache and path resolver cache. Useful for memory management or when data schema changes.
+
+---
+
+## resolvePath()
+
+Resolve a path in context data.
+
+```javascript
+const value = engine.resolvePath(context, path, defaultValue);
+```
+
+### Parameters
+
+<ParamField path="context" type="object" required>
+  Data context
+</ParamField>
+
+<ParamField path="path" type="string" required>
+  Dot-notation path (e.g., 'user.profile.name')
+</ParamField>
+
+<ParamField path="defaultValue" type="any" optional>
+  Default if path doesn't exist
+</ParamField>
+
+### Example
+
+```javascript
+const data = { user: { name: 'John', age: 25 } };
+
+engine.resolvePath(data, 'user.name');        // 'John'
+engine.resolvePath(data, 'user.email', null); // null
+```
+
+---
+
+## Complete Example
+
+```javascript
+import { createRuleEngine } from 'rule-engine-js';
+
+// Create engine with config
+const engine = createRuleEngine({
+  strict: false,
+  maxDepth: 10,
+  enableCache: true,
+  maxCacheSize: 1000
+});
+
+// Register custom operator
+engine.registerOperator('isEven', (args, context) => {
+  const [path] = args;
+  const value = engine.resolvePath(context, path);
+  return value % 2 === 0;
+});
+
+// Define rule
+const rule = {
+  and: [
+    { gte: ['age', 18] },
+    { eq: ['role', 'admin'] },
+    { isEven: ['score'] }
+  ]
+};
+
+// Evaluate
+const result = engine.evaluateExpr(rule, {
+  age: 25,
+  role: 'admin',
+  score: 100
+});
+
+console.log('Result:', result.success); // true
+
+// Check metrics
+const metrics = engine.getMetrics();
+console.log('Metrics:', metrics);
+
+// Get operators
+const operators = engine.getOperators();
+console.log('Operators:', operators.length);
+```
+
+---
+
+## Error Handling
+
+All methods handle errors gracefully:
+
+```javascript
+// Invalid rule structure
+const result = engine.evaluateExpr(null, data);
+// { success: false, error: "Rule must be a non-null object" }
+
+// Unknown operator
+const result = engine.evaluateExpr({ unknown: ['field'] }, data);
+// { success: false, error: "Unknown operator: unknown" }
+
+// Max depth exceeded
+const deepRule = { and: [{ and: [{ and: [/* ...deeply nested */ ] }] }] };
+const result = engine.evaluateExpr(deepRule, data);
+// { success: false, error: "Rule exceeds maximum depth of 10" }
+```
+
+---
+
+## TypeScript
+
+Full TypeScript support:
+
+```typescript
+import { createRuleEngine } from 'rule-engine-js';
+import type { RuleEngine, RuleExpression, EvaluationResult, EngineConfig } from 'rule-engine-js';
+
+const config: EngineConfig = {
+  strict: true,
+  maxDepth: 15
+};
+
+const engine: RuleEngine = createRuleEngine(config);
+const rule: RuleExpression = { gte: ['age', 18] };
+const result: EvaluationResult = engine.evaluateExpr(rule, data);
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Stateful Engine" icon="database" href="/api-reference/stateful-engine">
+    Event-driven engine with state tracking
+  </Card>
+  <Card title="Rule Helpers" icon="wrench" href="/api-reference/rule-helpers">
+    Fluent API for building rules
+  </Card>
+  <Card title="Operators" icon="list" href="/operators/overview">
+    All built-in operators
+  </Card>
+  <Card title="Custom Operators" icon="plus" href="/guides/custom-operators">
+    Create custom operators
+  </Card>
+</CardGroup>

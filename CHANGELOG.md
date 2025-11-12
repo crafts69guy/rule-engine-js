@@ -9,7 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Preparing for next release
+- **🔄 Stateful Rule Engine**: New `StatefulRuleEngine` class for state tracking and event-driven rule evaluation
+  - State tracking with previous context comparison
+  - Event system with `triggered`, `untriggered`, `changed`, and `evaluated` events
+  - Optional evaluation history storage with configurable size limits
+  - Flexible triggering modes (default: false → true transitions, optional: every change)
+  - Batch evaluation support with `evaluateBatch()` method
+
+- **📈 State Change Operators**: Six new operators for detecting value changes
+  - `changed` - Detects any value change between evaluations
+  - `changedBy` - Detects numeric change by specific threshold amount
+  - `changedFrom` - Detects change from a specific value
+  - `changedTo` - Detects change to a specific value
+  - `increased` - Detects numeric value increases
+  - `decreased` - Detects numeric value decreases
+
+- **🎛️ Enhanced Engine Features**:
+  - State change metadata tracking in evaluation context
+  - Pure change rule detection for optimized triggering logic
+  - State change classification (initial, triggered, untriggered, maintained-true, maintained-false)
+  - Event listener management with error handling
+  - Rule-specific state clearing and history access
+
+### Changed
+
+- Updated main export to include `StatefulRuleEngine` and `STATE_OPERATOR_NAMES`
+- Enhanced operator constants with new state change operator definitions
+- Improved documentation with comprehensive stateful engine examples and use cases
 
 ## [1.0.2] - 2025-08-20
 

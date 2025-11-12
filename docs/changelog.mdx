@@ -1,0 +1,303 @@
+---
+title: 'Changelog'
+description: 'Version history and release notes'
+icon: 'clock-rotate-left'
+---
+
+## Current Version: 1.0.3-beta.0
+
+<Info>
+This project follows [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/) format.
+</Info>
+
+---
+
+## Unreleased
+
+### Added
+
+<CardGroup cols={2}>
+  <Card title="Stateful Rule Engine" icon="rotate">
+    Event-driven state tracking
+  </Card>
+  <Card title="State Change Operators" icon="arrow-trend-up">
+    6 new operators for detecting changes
+  </Card>
+</CardGroup>
+
+**🔄 Stateful Rule Engine**
+- New `StatefulRuleEngine` class for state tracking and event-driven evaluation
+- State tracking with previous context comparison
+- Event system: `triggered`, `untriggered`, `changed`, `evaluated`
+- Optional evaluation history storage with configurable size limits
+- Flexible triggering modes (default: false → true, optional: every change)
+- Batch evaluation support with `evaluateBatch()`
+
+**📈 State Change Operators**
+- `changed` - Detects any value change
+- `changedBy` - Detects numeric change by threshold
+- `changedFrom` - Detects change from specific value
+- `changedTo` - Detects change to specific value
+- `increased` - Detects numeric value increases
+- `decreased` - Detects numeric value decreases
+
+**🎛️ Enhanced Features**
+- State change metadata tracking in evaluation context
+- Pure change rule detection for optimized triggering
+- State change classification (initial, triggered, untriggered, etc.)
+- Event listener management with error handling
+- Rule-specific state clearing and history access
+
+### Changed
+
+- Updated main export to include `StatefulRuleEngine` and `STATE_OPERATOR_NAMES`
+- Enhanced operator constants with state change definitions
+- Improved documentation with comprehensive stateful examples
+
+---
+
+## [1.0.2] - 2025-08-20
+
+### Added
+
+**New String Length Validation Helpers**
+- `validation.minLength(path, minLength)` - Validates minimum string length
+- `validation.maxLength(path, maxLength)` - Validates maximum string length
+- `validation.lengthRange(path, min, max)` - Validates string length range
+- `validation.exactLength(path, length)` - Validates exact string length
+
+**Development Tools**
+- Claude Code integration context (`CLAUDE.md`)
+- Comprehensive test coverage expansion with 382+ new test cases
+- Enhanced basic core functionality tests
+- Expanded logical operator test coverage
+- Comprehensive string operator validation
+
+### Changed
+
+- Improved CI/CD pipeline with Claude Code Review workflow
+- Enhanced test suite organization with better edge case coverage:
+  - Empty string handling
+  - Boundary condition testing
+  - Very long string validation
+  - Comprehensive string length scenarios
+
+### Fixed
+
+- Various code quality improvements
+- Better error handling and validation coverage
+
+---
+
+## [1.0.0] - 2025-08-12
+
+<Info>
+🎉 First stable release of Rule Engine JS
+</Info>
+
+### Core Features
+
+**Engine**
+- High-performance rule evaluation with caching
+- Dynamic field comparison support
+- Built-in security protections
+- TypeScript definitions
+- Zero external dependencies
+
+**Operators**
+```javascript
+// Comparison
+eq, neq, gt, gte, lt, lte
+
+// Logical
+and, or, not
+
+// String
+contains, startsWith, endsWith, regex
+
+// Array
+in, notIn
+
+// Special
+between, isNull, isNotNull
+```
+
+### Performance
+
+- LRU caching for expressions and path resolution
+- Performance metrics tracking
+- Bundle size < 25KB gzipped
+- Multiple output formats (UMD, ESM, CommonJS)
+
+### Developer Experience
+
+- Rule helpers for clean, readable syntax
+- Comprehensive error handling with detailed context
+- Extensive test coverage (>90%)
+- Complete TypeScript support
+- Field comparison helpers for dynamic rules
+
+### Security
+
+- Prototype pollution protection
+- Function access prevention
+- Safe path resolution
+- Configurable security settings
+
+### Build System
+
+- Optimized Rollup configuration
+- Multiple output formats
+- Bundle size analysis
+- Quality checks integration
+
+---
+
+## [0.9.0] - Development Phase
+
+### Added
+
+- Core engine architecture
+- Basic operator implementations
+- Initial testing framework
+
+### Changed
+
+- Refined API design based on testing
+
+### Fixed
+
+- Various bug fixes during development
+
+---
+
+## Version History
+
+<AccordionGroup>
+  <Accordion title="v1.0.2 - String Validation">
+    Added string length validation helpers and expanded test coverage
+  </Accordion>
+
+  <Accordion title="v1.0.0 - Stable Release">
+    First stable release with complete feature set, comprehensive operators, and production-ready performance
+  </Accordion>
+
+  <Accordion title="v0.9.x - Development">
+    Development and testing phases, API refinement
+  </Accordion>
+
+  <Accordion title="v0.1.0 - Initial">
+    Initial project setup and architecture
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## v1.0.0 Highlights
+
+**Key Features:**
+
+- **Zero Dependencies**: Lightweight with no external dependencies
+- **High Performance**: Intelligent caching with LRU eviction
+- **Type Safe**: Full TypeScript support with comprehensive type definitions
+- **Secure**: Built-in protection against common security vulnerabilities
+- **Flexible**: Support for dynamic field comparison and custom operators
+- **Developer Friendly**: Clean API with helper functions for rule construction
+
+**Use Cases:**
+
+- User access control and permissions
+- Business rule validation
+- Form validation with dynamic dependencies
+- Content filtering and recommendations
+- Dynamic pricing and discount logic
+- Workflow and approval processes
+
+**Quick Start:**
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+const rule = rules.and(
+  rules.gte('user.age', 18),
+  rules.eq('user.status', 'active'),
+  rules.in('user.role', ['admin', 'user'])
+);
+
+const result = engine.evaluateExpr(rule, userData);
+```
+
+---
+
+## Migration Guides
+
+<Tabs>
+  <Tab title="v1.0.0 → v1.0.2">
+    **No breaking changes**
+
+    New string validation helpers available:
+    ```javascript
+    const rules = createRuleHelpers();
+
+    // Use new validation helpers
+    rules.validation.minLength('username', 3);
+    rules.validation.maxLength('username', 20);
+    rules.validation.lengthRange('password', 8, 128);
+    ```
+  </Tab>
+
+  <Tab title="v1.0.2 → Unreleased">
+    **No breaking changes**
+
+    New stateful engine and state operators available:
+    ```javascript
+    import { StatefulRuleEngine } from 'rule-engine-js';
+
+    const statefulEngine = new StatefulRuleEngine(baseEngine);
+
+    // Use new state operators
+    const rule = { increased: ['temperature'] };
+    statefulEngine.evaluate('temp', rule, data);
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Contributing to Changelog
+
+When contributing, please follow these guidelines:
+
+1. **Add entries under `[Unreleased]`** for new changes
+2. **Use standard categories:**
+   - `Added` - New features
+   - `Changed` - Changes in existing functionality
+   - `Deprecated` - Soon-to-be removed features
+   - `Removed` - Removed features
+   - `Fixed` - Bug fixes
+   - `Security` - Vulnerability fixes
+
+3. **Format:** `- Brief description of change (#PR-number)`
+4. **Move entries to dated release** when releasing
+
+---
+
+## Support
+
+<CardGroup cols={2}>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/crafts69guy/rule-engine-js/issues">
+    Report bugs and request features
+  </Card>
+  <Card title="Discussions" icon="comments" href="https://github.com/crafts69guy/rule-engine-js/discussions">
+    Ask questions and share ideas
+  </Card>
+  <Card title="Documentation" icon="book" href="/">
+    Browse full documentation
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/contributing">
+    Contribution guidelines
+  </Card>
+</CardGroup>

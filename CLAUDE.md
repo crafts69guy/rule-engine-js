@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Status
+
+- **Version**: 1.0.3-beta.0
+- **Status**: Beta release with stateful rule engine features
+- **Test Coverage**: 518 passing tests, >90% code coverage
+- **Main Branch**: production
+- **Current Branch**: feature/stateful-operator
+
 ## Development Commands
 
 ### Build & Development
@@ -53,10 +61,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Security measures against malicious paths
 - Resolves both literal values and object paths
 
+**StatefulRuleEngine** (`src/core/StatefulRuleEngine.js`)
+
+- Wraps base RuleEngine to add state tracking and event-driven capabilities
+- Maintains previous states for comparison across evaluations
+- Event system: `triggered`, `untriggered`, `changed`, `evaluated`
+- Optional evaluation history storage with configurable size limits
+- Batch evaluation support via `evaluateBatch()`
+- Flexible triggering modes (default: false → true transitions, optional: every change)
+- Pure change rule detection for optimized triggering logic
+
 **RuleHelpers** (`src/helpers/RuleHelpers.js`)
 
 - Fluent API for building rule expressions
-- Organized by operator categories (comparison, logical, string, array, special)
+- Organized by operator categories (comparison, logical, string, array, special, state)
 - Includes field comparison helpers and validation patterns
 - Factory function: `createRuleHelpers()`
 
@@ -64,13 +82,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 All operators inherit from `BaseOperator` (`src/operators/base/BaseOperator.js`) and are organized by category:
 
-- **Comparison**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`
-- **Logical**: `and`, `or`, `not`
-- **String**: `contains`, `startsWith`, `endsWith`, `regex`
-- **Array**: `in`, `notIn`
-- **Special**: `between`, `isNull`, `isNotNull`
+- **Comparison**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte` (100% coverage)
+- **Logical**: `and`, `or`, `not` (96% coverage)
+- **String**: `contains`, `startsWith`, `endsWith`, `regex` (95% coverage)
+- **Array**: `in`, `notIn` (100% coverage)
+- **Numeric**: `add`, `subtract`, `multiply`, `divide`, `modulo` (94.11% coverage)
+- **Special**: `between`, `isNull`, `isNotNull` (93.33% coverage)
+- **State Change**: `changed`, `changedBy`, `changedFrom`, `changedTo`, `increased`, `decreased` (100% line coverage)
 
 Operators are registered via `registerBuiltinOperators()` in `src/operators/index.js`.
+
+#### State Change Operators (`src/operators/state.js`)
+
+State change operators require a `_previous` context and are designed for use with `StatefulRuleEngine`:
+
+- **`changed`**: Detects any value change between evaluations
+  - Usage: `{ changed: ["user.status"] }`
+  - Returns `true` when value differs from previous state
+
+- **`changedBy`**: Detects numeric change by specific threshold amount
+  - Usage: `{ changedBy: ["temperature", 5] }` // changed by at least 5
+  - Returns `true` when absolute change ≥ threshold
+
+- **`changedFrom`**: Detects change from a specific value
+  - Usage: `{ changedFrom: ["order.status", "pending"] }`
+  - Returns `true` when previous value was "pending" and current is different
+
+- **`changedTo`**: Detects change to a specific value
+  - Usage: `{ changedTo: ["order.status", "completed"] }`
+  - Returns `true` when current value is "completed" and previous was different
+
+- **`increased`**: Detects numeric value increases
+  - Usage: `{ increased: ["score"] }`
+  - Returns `true` when current value > previous value
+
+- **`decreased`**: Detects numeric value decreases
+  - Usage: `{ decreased: ["stock"] }`
+  - Returns `true` when current value < previous value
+
+All state operators automatically mark the evaluation context with `_meta.hasChangeOperator = true` for tracking purposes.
 
 ### Type System
 
@@ -116,11 +166,26 @@ The project uses TypeScript declaration files for type safety while maintaining 
 
 ```
 tests/
-├── unit/           - Component-level tests
-├── integration/    - Cross-component tests
-├── e2e/           - End-to-end scenarios
-└── performance/   - Benchmarking tests
+├── unit/           - Component-level tests (core, operators, helpers, utils)
+│   ├── core/      - RuleEngine, StatefulRuleEngine, PathResolver tests
+│   ├── operators/ - All operator category tests
+│   ├── helpers/   - RuleHelpers tests
+│   └── utils/     - TypeUtils, errors tests
+├── integration/    - Cross-component tests, stateful features
+├── e2e/           - End-to-end scenarios, stateful workflows
+├── dist/          - Build verification tests
+└── performance/   - Benchmarking tests (planned)
 ```
+
+**Current Test Metrics:**
+
+- **518 tests** passing
+- **>90% coverage** overall
+- Coverage by component:
+  - Core: 89-100%
+  - Operators: 87-100%
+  - Helpers: 100%
+  - Utils: 100%
 
 ### Test Helpers
 
@@ -159,7 +224,97 @@ The engine includes built-in metrics tracking:
 
 Access via `engine.getMetrics()` and `engine.getCacheStats()`.
 
-## Journaling workflow
+## Stateful Engine Usage
+
+### Creating a Stateful Engine
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+// Create base engine
+const baseEngine = createRuleEngine();
+
+// Wrap with StatefulRuleEngine
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: false, // Trigger only on false → true transitions (default)
+  storeHistory: true, // Keep evaluation history
+  maxHistorySize: 100, // Limit history entries
+});
+```
+
+### Event System
+
+```javascript
+// Listen for rule triggers (false → true transition)
+statefulEngine.on('triggered', (event) => {
+  console.log(`Rule ${event.ruleId} triggered!`, event.context);
+});
+
+// Listen for state changes
+statefulEngine.on('changed', (event) => {
+  console.log(`Rule ${event.ruleId} state changed`);
+});
+
+// Listen for all evaluations
+statefulEngine.on('evaluated', (event) => {
+  console.log(`Rule ${event.ruleId} evaluated`, event.result);
+});
+```
+
+### Evaluating Rules with State
+
+```javascript
+// Define a rule with state change operators
+const temperatureAlert = {
+  and: [
+    { gte: ['temperature', 25] },
+    { increased: ['temperature'] }, // Only trigger when temperature increases
+  ],
+};
+
+// First evaluation
+let data = { temperature: 20 };
+statefulEngine.evaluate('temp-rule', temperatureAlert, data);
+// Result: { success: false, triggered: false }
+
+// Second evaluation - temperature increased and is now ≥ 25
+data = { temperature: 26 };
+const result = statefulEngine.evaluate('temp-rule', temperatureAlert, data);
+// Result: { success: true, triggered: true }
+// Event 'triggered' is emitted
+```
+
+### Batch Evaluation
+
+```javascript
+const rules = {
+  'payment-received': { changedTo: ['order.paymentStatus', 'paid'] },
+  'inventory-low': {
+    and: [{ decreased: ['product.stock'] }, { lte: ['product.stock', 10] }],
+  },
+  'price-drop': {
+    and: [{ decreased: ['product.price'] }, { changedBy: ['product.price', 5] }],
+  },
+};
+
+const results = statefulEngine.evaluateBatch(rules, orderData);
+// Returns object with results for each rule
+```
+
+### State Management
+
+```javascript
+// Get evaluation history for a specific rule
+const history = statefulEngine.getHistory('temp-rule');
+
+// Clear state for a specific rule
+statefulEngine.clearState('temp-rule');
+
+// Clear all state
+statefulEngine.clearState();
+```
+
+## Journaling Workflow
 
 You (the AI agent) have to report what you did in this project at each end of the task in my Inkdrop note.
 

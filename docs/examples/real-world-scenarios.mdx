@@ -1,0 +1,640 @@
+---
+title: 'Real-World Scenarios'
+description: 'Production-ready examples from various industries'
+icon: 'globe'
+---
+
+## E-commerce
+
+<CardGroup cols={2}>
+  <Card title="Dynamic Pricing" icon="tag">
+    Price rules based on user segments
+  </Card>
+  <Card title="Inventory Management" icon="boxes">
+    Stock alerts and reordering
+  </Card>
+  <Card title="Fraud Detection" icon="shield">
+    Suspicious order patterns
+  </Card>
+  <Card title="Promotions" icon="gift">
+    Coupon and discount logic
+  </Card>
+</CardGroup>
+
+---
+
+### Dynamic Pricing
+
+```javascript
+import { createRuleEngine, createRuleHelpers } from 'rule-engine-js';
+
+const engine = createRuleEngine();
+const rules = createRuleHelpers();
+
+// VIP discount (20%)
+const vipDiscount = rules.and(
+  rules.eq('user.tier', 'vip'),
+  rules.gte('user.loyaltyPoints', 1000)
+);
+
+// Bulk discount (15%)
+const bulkDiscount = rules.and(
+  rules.gte('cart.items.length', 10),
+  rules.gte('cart.total', 500)
+);
+
+// First-time customer (10%)
+const newCustomerDiscount = rules.and(
+  rules.eq('user.orderCount', 0),
+  rules.gte('cart.total', 50)
+);
+
+// Seasonal discount (25%)
+const seasonalDiscount = rules.and(
+  rules.in('product.category', ['winter-clothing', 'holiday-gifts']),
+  rules.gte('currentMonth', 11) // November or December
+);
+
+function calculateDiscount(data) {
+  if (engine.evaluateExpr(seasonalDiscount, data).success) {
+    return 0.25;
+  }
+  if (engine.evaluateExpr(vipDiscount, data).success) {
+    return 0.20;
+  }
+  if (engine.evaluateExpr(bulkDiscount, data).success) {
+    return 0.15;
+  }
+  if (engine.evaluateExpr(newCustomerDiscount, data).success) {
+    return 0.10;
+  }
+  return 0;
+}
+
+const order = {
+  user: { tier: 'vip', loyaltyPoints: 1500, orderCount: 25 },
+  cart: { items: [], total: 300 },
+  product: { category: 'electronics' },
+  currentMonth: 6
+};
+
+const discount = calculateDiscount(order);
+const finalPrice = order.cart.total * (1 - discount);
+
+console.log(`Discount: ${discount * 100}%`);
+console.log(`Final price: $${finalPrice}`);
+// Discount: 20%
+// Final price: $240
+```
+
+---
+
+### Fraud Detection
+
+```javascript
+import { StatefulRuleEngine } from 'rule-engine-js';
+
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine);
+
+const fraudRules = {
+  'high-value-new-customer': rules.and(
+    rules.lte('user.accountAge', 7), // Account less than 7 days old
+    rules.gte('order.total', 1000),
+    rules.eq('user.orderCount', 0)
+  ),
+
+  'rapid-orders': rules.and(
+    rules.increased('user.orderCount'),
+    rules.changedBy('user.orderCount', 5) // 5+ orders in short time
+  ),
+
+  'shipping-billing-mismatch': rules.and(
+    rules.neq('shipping.country', 'billing.country'),
+    rules.gte('order.total', 500)
+  ),
+
+  'unusual-location': rules.and(
+    rules.changed('user.ipCountry'),
+    rules.neq('user.ipCountry', 'user.registeredCountry')
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  console.log(`🚨 Fraud alert: ${event.ruleId}`);
+  console.log('Review order:', event.context.order.id);
+  // Flag for manual review
+  // Notify fraud team
+  // Hold payment processing
+});
+
+const orderData = {
+  user: {
+    accountAge: 2,
+    orderCount: 0,
+    ipCountry: 'US',
+    registeredCountry: 'US'
+  },
+  order: {
+    id: 'ORD-123',
+    total: 1500
+  },
+  shipping: { country: 'US' },
+  billing: { country: 'US' }
+};
+
+// Evaluate all fraud rules
+const results = statefulEngine.evaluateBatch(fraudRules, orderData);
+// 🚨 Fraud alert: high-value-new-customer
+```
+
+---
+
+## Healthcare
+
+### Patient Monitoring
+
+```javascript
+const patientAlerts = {
+  'critical-vitals': rules.and(
+    rules.or(
+      rules.lte('vitals.heartRate', 40),
+      rules.gte('vitals.heartRate', 120),
+      rules.lte('vitals.bloodPressure.systolic', 90),
+      rules.gte('vitals.bloodPressure.systolic', 180)
+    )
+  ),
+
+  'deteriorating-condition': rules.and(
+    rules.decreased('vitals.oxygenLevel'),
+    rules.lte('vitals.oxygenLevel', 90)
+  ),
+
+  'medication-due': rules.and(
+    rules.gte('currentTime', 'medication.nextDoseTime'),
+    rules.eq('medication.administered', false)
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  const alerts = {
+    'critical-vitals': '🚨 CRITICAL: Immediate attention required',
+    'deteriorating-condition': '⚠️ WARNING: Patient condition worsening',
+    'medication-due': '💊 REMINDER: Medication due'
+  };
+
+  console.log(alerts[event.ruleId]);
+  // Notify medical staff
+  // Update patient dashboard
+  // Log to medical records
+});
+
+const patientData = {
+  vitals: {
+    heartRate: 125,
+    bloodPressure: { systolic: 140, diastolic: 90 },
+    oxygenLevel: 95
+  },
+  medication: {
+    nextDoseTime: '14:00',
+    administered: false
+  },
+  currentTime: '14:30'
+};
+
+statefulEngine.evaluateBatch(patientAlerts, patientData);
+// 🚨 CRITICAL: Immediate attention required
+// 💊 REMINDER: Medication due
+```
+
+---
+
+## Financial Services
+
+### Transaction Monitoring
+
+```javascript
+const transactionRules = {
+  'large-transaction': rules.and(
+    rules.gte('transaction.amount', 10000),
+    rules.increased('transaction.amount')
+  ),
+
+  'rapid-withdrawals': rules.and(
+    rules.increased('account.withdrawalCount'),
+    rules.changedBy('account.withdrawalCount', 5),
+    rules.gte('account.totalWithdrawn', 5000)
+  ),
+
+  'low-balance-warning': rules.and(
+    rules.decreased('account.balance'),
+    rules.lte('account.balance', 100),
+    rules.gte('account.balance', 0)
+  ),
+
+  'overdraft': rules.and(
+    rules.lt('account.balance', 0),
+    rules.decreased('account.balance')
+  ),
+
+  'suspicious-pattern': rules.and(
+    rules.changed('transaction.location'),
+    rules.neq('transaction.location', 'account.usualLocation'),
+    rules.gte('transaction.amount', 1000)
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  const actions = {
+    'large-transaction': () => {
+      console.log('📧 Email verification sent');
+      // Send 2FA code
+    },
+    'rapid-withdrawals': () => {
+      console.log('🔒 Account temporarily locked');
+      // Require additional verification
+    },
+    'low-balance-warning': () => {
+      console.log('⚠️ Low balance notification');
+      // SMS alert
+    },
+    'overdraft': () => {
+      console.log('❌ Transaction blocked');
+      // Block further transactions
+    },
+    'suspicious-pattern': () => {
+      console.log('🚨 Fraud review initiated');
+      // Flag for manual review
+    }
+  };
+
+  actions[event.ruleId]?.();
+});
+
+let accountData = {
+  account: {
+    balance: 5000,
+    withdrawalCount: 2,
+    totalWithdrawn: 500,
+    usualLocation: 'New York'
+  },
+  transaction: {
+    amount: 15000,
+    location: 'New York'
+  }
+};
+
+statefulEngine.evaluateBatch(transactionRules, accountData);
+// 📧 Email verification sent
+```
+
+---
+
+## IoT & Smart Home
+
+### Smart Thermostat
+
+```javascript
+const thermostatRules = {
+  'cooling-needed': rules.and(
+    rules.gte('sensors.temperature', 'settings.maxTemp'),
+    rules.increased('sensors.temperature'),
+    rules.eq('hvac.mode', 'auto')
+  ),
+
+  'heating-needed': rules.and(
+    rules.lte('sensors.temperature', 'settings.minTemp'),
+    rules.decreased('sensors.temperature'),
+    rules.eq('hvac.mode', 'auto')
+  ),
+
+  'away-mode': rules.and(
+    rules.eq('sensors.motion', false),
+    rules.gte('sensors.motionlessMinutes', 30),
+    rules.eq('settings.ecoMode', true)
+  ),
+
+  'window-open': rules.and(
+    rules.eq('sensors.windowOpen', true),
+    rules.or(
+      rules.eq('hvac.heating', true),
+      rules.eq('hvac.cooling', true)
+    )
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  const actions = {
+    'cooling-needed': () => {
+      console.log('❄️ Cooling activated');
+      // Turn on AC
+    },
+    'heating-needed': () => {
+      console.log('🔥 Heating activated');
+      // Turn on heat
+    },
+    'away-mode': () => {
+      console.log('🌙 Eco mode activated');
+      // Reduce energy usage
+    },
+    'window-open': () => {
+      console.log('⚠️ Window open - HVAC paused');
+      // Pause HVAC to save energy
+    }
+  };
+
+  actions[event.ruleId]?.();
+});
+
+const homeData = {
+  sensors: {
+    temperature: 78,
+    motion: true,
+    motionlessMinutes: 0,
+    windowOpen: false
+  },
+  settings: {
+    maxTemp: 75,
+    minTemp: 68,
+    ecoMode: true
+  },
+  hvac: {
+    mode: 'auto',
+    heating: false,
+    cooling: false
+  }
+};
+
+statefulEngine.evaluateBatch(thermostatRules, homeData);
+// ❄️ Cooling activated
+```
+
+---
+
+## Content Moderation
+
+### Social Media Platform
+
+```javascript
+const moderationRules = {
+  'spam-detection': rules.and(
+    rules.contains('content.text', 'http'),
+    rules.gte('content.linkCount', 3),
+    rules.lte('user.accountAge', 7)
+  ),
+
+  'profanity-filter': rules.or(
+    rules.contains('content.text', 'badword1'),
+    rules.contains('content.text', 'badword2')
+    // Add more as needed
+  ),
+
+  'rapid-posting': rules.and(
+    rules.increased('user.postCount'),
+    rules.changedBy('user.postCount', 10), // 10 posts in short time
+    rules.lte('user.trustScore', 50)
+  ),
+
+  'mass-report': rules.and(
+    rules.increased('content.reportCount'),
+    rules.gte('content.reportCount', 5)
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  const actions = {
+    'spam-detection': () => {
+      console.log('🚫 Post flagged as spam');
+      // Hide post, notify moderators
+    },
+    'profanity-filter': () => {
+      console.log('⚠️ Profanity detected');
+      // Replace with asterisks or reject
+    },
+    'rapid-posting': () => {
+      console.log('⏱️ Rate limit applied');
+      // Slow down posting
+    },
+    'mass-report': () => {
+      console.log('👁️ Content under review');
+      // Escalate to human moderators
+    }
+  };
+
+  actions[event.ruleId]?.();
+});
+
+const postData = {
+  content: {
+    text: 'Check out http://spam.com and http://scam.com!',
+    linkCount: 2,
+    reportCount: 0
+  },
+  user: {
+    accountAge: 2,
+    postCount: 15,
+    trustScore: 30
+  }
+};
+
+statefulEngine.evaluateBatch(moderationRules, postData);
+```
+
+---
+
+## SaaS Platform
+
+### Usage-Based Billing
+
+```javascript
+const billingRules = {
+  'usage-threshold-80': rules.and(
+    rules.gte('usage.percentage', 80),
+    rules.lt('usage.percentage', 100),
+    rules.increased('usage.percentage')
+  ),
+
+  'usage-exceeded': rules.and(
+    rules.gte('usage.percentage', 100),
+    rules.increased('usage.percentage')
+  ),
+
+  'upgrade-recommended': rules.and(
+    rules.gte('usage.percentage', 90),
+    rules.eq('subscription.tier', 'basic'),
+    rules.gte('subscription.consecutiveMonthsHigh', 2)
+  ),
+
+  'downgrade-eligible': rules.and(
+    rules.lte('usage.percentage', 30),
+    rules.eq('subscription.tier', 'premium'),
+    rules.gte('subscription.consecutiveMonthsLow', 3)
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  const actions = {
+    'usage-threshold-80': () => {
+      console.log('📧 80% usage warning email sent');
+      // Email user about approaching limit
+    },
+    'usage-exceeded': () => {
+      console.log('🚨 Usage limit exceeded - upgrade prompt shown');
+      // Show upgrade modal
+    },
+    'upgrade-recommended': () => {
+      console.log('⬆️ Upgrade recommendation sent');
+      // Offer premium plan discount
+    },
+    'downgrade-eligible': () => {
+      console.log('💡 Downgrade suggestion sent');
+      // Suggest cost savings
+    }
+  };
+
+  actions[event.ruleId]?.();
+});
+
+const accountData = {
+  usage: {
+    percentage: 85,
+    current: 8500,
+    limit: 10000
+  },
+  subscription: {
+    tier: 'basic',
+    consecutiveMonthsHigh: 3,
+    consecutiveMonthsLow: 0
+  }
+};
+
+statefulEngine.evaluateBatch(billingRules, accountData);
+// 📧 80% usage warning email sent
+// ⬆️ Upgrade recommendation sent
+```
+
+---
+
+## Logistics & Delivery
+
+### Delivery Tracking
+
+```javascript
+const deliveryRules = {
+  'delivery-delayed': rules.and(
+    rules.gt('delivery.currentTime', 'delivery.estimatedTime'),
+    rules.eq('delivery.status', 'in-transit')
+  ),
+
+  'location-updated': rules.and(
+    rules.changed('delivery.currentLocation'),
+    rules.eq('delivery.status', 'in-transit')
+  ),
+
+  'out-for-delivery': rules.and(
+    rules.changedTo('delivery.status', 'out-for-delivery'),
+    rules.isNotNull('delivery.driver')
+  ),
+
+  'delivered': rules.and(
+    rules.changedTo('delivery.status', 'delivered'),
+    rules.isNotNull('delivery.signedBy')
+  ),
+
+  'failed-delivery': rules.and(
+    rules.changedTo('delivery.status', 'failed'),
+    rules.gte('delivery.attemptCount', 3)
+  )
+};
+
+statefulEngine.on('triggered', (event) => {
+  const actions = {
+    'delivery-delayed': () => {
+      console.log('⏰ Delivery delayed notification sent');
+      // SMS/Email to customer
+    },
+    'location-updated': () => {
+      console.log('📍 Location updated');
+      // Update tracking map
+    },
+    'out-for-delivery': () => {
+      console.log('🚚 Out for delivery notification');
+      // SMS with driver info
+    },
+    'delivered': () => {
+      console.log('✅ Delivery confirmation sent');
+      // Email receipt
+    },
+    'failed-delivery': () => {
+      console.log('❌ Failed delivery - return to sender');
+      // Initiate return process
+    }
+  };
+
+  actions[event.ruleId]?.();
+});
+
+const deliveryData = {
+  delivery: {
+    status: 'out-for-delivery',
+    currentLocation: 'Distribution Center',
+    currentTime: '14:30',
+    estimatedTime: '15:00',
+    driver: { name: 'John', id: 'D123' },
+    attemptCount: 1,
+    signedBy: null
+  }
+};
+
+statefulEngine.evaluateBatch(deliveryRules, deliveryData);
+// 🚚 Out for delivery notification
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Use Stateful Rules for Time-Series Data">
+    Track changes in sensor data, user behavior, transactions
+  </Accordion>
+
+  <Accordion title="2. Combine Multiple Rules">
+    Use batch evaluation for complex scenarios
+  </Accordion>
+
+  <Accordion title="3. Add Business Context">
+    Include relevant business logic, not just technical checks
+  </Accordion>
+
+  <Accordion title="4. Monitor and Alert">
+    Use event system for real-time notifications
+  </Accordion>
+
+  <Accordion title="5. Test with Real Data">
+    Use production-like scenarios in testing
+  </Accordion>
+
+  <Accordion title="6. Performance Matters">
+    Cache rules, order conditions efficiently
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Stateful Rules" icon="bolt" href="/examples/stateful-rules">
+    State change detection
+  </Card>
+  <Card title="Complex Validation" icon="shield" href="/examples/complex-validation">
+    Multi-step validation
+  </Card>
+  <Card title="Performance Guide" icon="gauge-high" href="/guides/performance">
+    Optimization tips
+  </Card>
+  <Card title="Deployment Guide" icon="rocket" href="/guides/deployment">
+    Production deployment
+  </Card>
+</CardGroup>

@@ -1,0 +1,132 @@
+---
+title: 'Operators'
+description: 'Overview of built-in operators and custom operator creation'
+---
+
+## What are Operators?
+
+Operators are the building blocks of rules in Rule Engine JS. Each operator implements specific logic for comparing, transforming, or validating data.
+
+<Info>
+Rule Engine JS includes 20+ built-in operators organized into 7 categories, plus support for custom operators.
+</Info>
+
+## Operator Categories
+
+<CardGroup cols={2}>
+  <Card title="Comparison" icon="equals" href="/operators/comparison">
+    Compare values: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`
+  </Card>
+
+  <Card title="Logical" icon="circle-nodes" href="/operators/logical">
+    Combine conditions: `and`, `or`, `not`
+  </Card>
+
+  <Card title="String" icon="text" href="/operators/string">
+    Text operations: `contains`, `startsWith`, `endsWith`, `regex`
+  </Card>
+
+  <Card title="Array" icon="list" href="/operators/array">
+    Array membership: `in`, `notIn`
+  </Card>
+
+  <Card title="Numeric" icon="hashtag" href="/operators/numeric">
+    Number operations: `between`
+  </Card>
+
+  <Card title="Special" icon="star" href="/operators/special">
+    Null checks: `isNull`, `isNotNull`
+  </Card>
+
+  <Card title="State" icon="chart-line" href="/operators/state">
+    State changes: `changed`, `changedBy`, `changedFrom`, `changedTo`, `increased`, `decreased`
+  </Card>
+</CardGroup>
+
+## Quick Reference
+
+| Operator | Syntax | Description |
+|----------|--------|-------------|
+| `eq` | `{ eq: ['age', 18] }` | Equals comparison |
+| `gt` | `{ gt: ['score', 90] }` | Greater than |
+| `and` | `{ and: [rule1, rule2] }` | Logical AND |
+| `or` | `{ or: [rule1, rule2] }` | Logical OR |
+| `contains` | `{ contains: ['name', 'John'] }` | String contains |
+| `in` | `{ in: ['admin', 'roles'] }` | Array membership |
+| `between` | `{ between: ['age', [18, 65]] }` | Range check |
+| `changed` | `{ changed: ['status'] }` | Value changed (stateful) |
+
+<Tip>
+See the [Complete Operators Reference](/operators/overview) for detailed documentation on all operators.
+</Tip>
+
+## Using Operators
+
+<Tabs>
+  <Tab title="Direct JSON">
+    ```javascript
+    const rule = {
+      and: [
+        { gte: ['age', 18] },
+        { eq: ['role', 'admin'] }
+      ]
+    };
+
+    const result = engine.evaluateExpr(rule, userData);
+    ```
+  </Tab>
+
+  <Tab title="Rule Helpers">
+    ```javascript
+    import { createRuleHelpers } from 'rule-engine-js';
+
+    const rules = createRuleHelpers();
+
+    const rule = rules.and(
+      rules.gte('age', 18),
+      rules.eq('role', 'admin')
+    );
+
+    const result = engine.evaluateExpr(rule, userData);
+    ```
+  </Tab>
+</Tabs>
+
+## Custom Operators
+
+Create custom operators for business-specific logic:
+
+```javascript
+// Register a custom operator
+engine.registerOperator('isWorkingAge', (args, context) => {
+  const [agePath, country = 'US'] = args;
+  const age = context[agePath];
+
+  const minAge = {
+    'US': 16,
+    'UK': 16,
+    'EU': 18
+  };
+
+  return age >= (minAge[country] || 18);
+});
+
+// Use the custom operator
+const rule = { isWorkingAge: ['applicant.age', 'US'] };
+const result = engine.evaluateExpr(rule, { applicant: { age: 17 } });
+```
+
+<Check>
+Custom operators integrate seamlessly with built-in operators and rule helpers.
+</Check>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Operators Overview" icon="list" href="/operators/overview">
+    Complete reference of all operators
+  </Card>
+  <Card title="Comparison Operators" icon="equals" href="/operators/comparison">
+    Detailed comparison operator docs
+  </Card>
+</CardGroup>

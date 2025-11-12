@@ -46,10 +46,11 @@ export function createRuleEngine(config = {}) {
 }
 
 // Re-export important classes and constants
-export { OPERATOR_NAMES } from './constants/operators.js';
+export { OPERATOR_NAMES, STATE_OPERATOR_NAMES } from './constants/operators.js';
 export { RuleEngineError, OperatorError, ValidationError } from './utils/errors.js';
 export { PathResolver } from './core/PathResolver.js';
 export { RuleEngine } from './core/RuleEngine.js';
+export { StatefulRuleEngine } from './core/StatefulRuleEngine.js';
 export { TypeUtils } from './utils/TypeUtils.js';
 
 // Export rule helpers

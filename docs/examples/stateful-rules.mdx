@@ -1,0 +1,526 @@
+---
+title: 'Stateful Rules'
+description: 'State change detection and event-driven examples'
+icon: 'bolt'
+---
+
+## Quick Start
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+// Create base engine
+const baseEngine = createRuleEngine();
+
+// Wrap with stateful engine
+const statefulEngine = new StatefulRuleEngine(baseEngine);
+
+// Define rule with state change
+const rule = {
+  and: [
+    { gte: ['temperature', 25] },
+    { increased: ['temperature'] }
+  ]
+};
+
+// First evaluation
+statefulEngine.evaluate('temp', rule, { temperature: 20 });
+// { success: false, triggered: false }
+
+// Second evaluation - temperature increased to 26
+statefulEngine.evaluate('temp', rule, { temperature: 26 });
+// { success: true, triggered: true }
+```
+
+---
+
+## Event System
+
+<CardGroup cols={2}>
+  <Card title="triggered" icon="bell">
+    Rule becomes true (false → true)
+  </Card>
+  <Card title="untriggered" icon="bell-slash">
+    Rule becomes false (true → false)
+  </Card>
+  <Card title="changed" icon="rotate">
+    Rule result changed
+  </Card>
+  <Card title="evaluated" icon="check">
+    Every evaluation
+  </Card>
+</CardGroup>
+
+### Listening to Events
+
+```javascript
+// Listen for triggers
+statefulEngine.on('triggered', (event) => {
+  console.log(`Rule ${event.ruleId} triggered!`);
+  console.log('Context:', event.context);
+  console.log('Result:', event.result);
+});
+
+// Listen for state changes
+statefulEngine.on('changed', (event) => {
+  console.log(`Rule ${event.ruleId} state changed`);
+  console.log('Previous:', event.previousResult);
+  console.log('Current:', event.result);
+});
+
+// Listen to all evaluations
+statefulEngine.on('evaluated', (event) => {
+  console.log(`Rule ${event.ruleId} evaluated`);
+});
+```
+
+---
+
+## Temperature Monitoring
+
+```javascript
+const tempAlert = {
+  and: [
+    { gte: ['temperature', 30] },
+    { increased: ['temperature'] }
+  ]
+};
+
+statefulEngine.on('triggered', (event) => {
+  if (event.ruleId === 'temp-alert') {
+    console.log('⚠️ Temperature rising!', event.context.temperature);
+  }
+});
+
+// Monitor temperature changes
+statefulEngine.evaluate('temp-alert', tempAlert, { temperature: 25 });
+// No trigger
+
+statefulEngine.evaluate('temp-alert', tempAlert, { temperature: 32 });
+// ⚠️ Temperature rising! 32
+```
+
+---
+
+## Order Status Tracking
+
+```javascript
+const orderCompleteRule = {
+  changedTo: ['order.status', 'completed']
+};
+
+statefulEngine.on('triggered', (event) => {
+  if (event.ruleId === 'order-complete') {
+    console.log('📦 Order completed!', event.context.order.id);
+    // Send notification, update inventory, etc.
+  }
+});
+
+// Track order progression
+const order = { order: { id: 123, status: 'pending' } };
+
+statefulEngine.evaluate('order-complete', orderCompleteRule, order);
+// No trigger
+
+order.order.status = 'completed';
+statefulEngine.evaluate('order-complete', orderCompleteRule, order);
+// 📦 Order completed! 123
+```
+
+---
+
+## Stock Monitoring
+
+```javascript
+const lowStockRule = {
+  and: [
+    { decreased: ['product.stock'] },
+    { lte: ['product.stock', 10] }
+  ]
+};
+
+statefulEngine.on('triggered', (event) => {
+  if (event.ruleId === 'low-stock') {
+    console.log('📉 Low stock alert!', event.context.product);
+    // Reorder inventory
+  }
+});
+
+let product = { product: { stock: 50, name: 'Widget' } };
+
+statefulEngine.evaluate('low-stock', lowStockRule, product);
+// No trigger (stock is high)
+
+product.product.stock = 8;
+statefulEngine.evaluate('low-stock', lowStockRule, product);
+// 📉 Low stock alert! { stock: 8, name: 'Widget' }
+```
+
+---
+
+## Price Change Detection
+
+```javascript
+const priceDrop = {
+  and: [
+    { decreased: ['price'] },
+    { changedBy: ['price', 5] }
+  ]
+};
+
+statefulEngine.on('triggered', (event) => {
+  if (event.ruleId === 'price-drop') {
+    console.log('💰 Price dropped by $5+');
+  }
+});
+
+statefulEngine.evaluate('price-drop', priceDrop, { price: 100 });
+// No trigger
+
+statefulEngine.evaluate('price-drop', priceDrop, { price: 94 });
+// 💰 Price dropped by $5+
+```
+
+---
+
+## User Activity Tracking
+
+```javascript
+const loginDetection = {
+  changedFrom: ['user.status', 'offline']
+};
+
+const logoutDetection = {
+  changedTo: ['user.status', 'offline']
+};
+
+statefulEngine.on('triggered', (event) => {
+  if (event.ruleId === 'login') {
+    console.log('👤 User logged in');
+  }
+  if (event.ruleId === 'logout') {
+    console.log('👋 User logged out');
+  }
+});
+
+let user = { user: { status: 'offline' } };
+
+statefulEngine.evaluate('login', loginDetection, user);
+statefulEngine.evaluate('logout', logoutDetection, user);
+
+user.user.status = 'online';
+statefulEngine.evaluate('login', loginDetection, user);
+// 👤 User logged in
+
+user.user.status = 'offline';
+statefulEngine.evaluate('logout', logoutDetection, user);
+// 👋 User logged out
+```
+
+---
+
+## Batch Evaluation
+
+Monitor multiple rules at once.
+
+```javascript
+const rules = {
+  'payment-received': {
+    changedTo: ['order.paymentStatus', 'paid']
+  },
+  'inventory-low': {
+    and: [
+      { decreased: ['product.stock'] },
+      { lte: ['product.stock', 10] }
+    ]
+  },
+  'price-change': {
+    changed: ['product.price']
+  }
+};
+
+const data = {
+  order: { paymentStatus: 'paid' },
+  product: { stock: 8, price: 99 }
+};
+
+const results = statefulEngine.evaluateBatch(rules, data);
+
+console.log(results);
+// {
+//   'payment-received': { success: true, triggered: true },
+//   'inventory-low': { success: true, triggered: true },
+//   'price-change': { success: true, triggered: true }
+// }
+```
+
+---
+
+## Analytics Tracking
+
+```javascript
+const pageViewIncrease = {
+  and: [
+    { increased: ['analytics.pageViews'] },
+    { changedBy: ['analytics.pageViews', 100] }
+  ]
+};
+
+statefulEngine.on('triggered', (event) => {
+  if (event.ruleId === 'viral') {
+    console.log('🔥 Page views spiked by 100+!');
+  }
+});
+
+let analytics = { analytics: { pageViews: 500 } };
+
+statefulEngine.evaluate('viral', pageViewIncrease, analytics);
+// No trigger
+
+analytics.analytics.pageViews = 650;
+statefulEngine.evaluate('viral', pageViewIncrease, analytics);
+// 🔥 Page views spiked by 100+!
+```
+
+---
+
+## Sensor Data Monitoring
+
+```javascript
+const sensorAlert = {
+  and: [
+    { gte: ['sensor.value', 100] },
+    { increased: ['sensor.value'] },
+    { changedBy: ['sensor.value', 10] }
+  ]
+};
+
+statefulEngine.on('triggered', (event) => {
+  console.log('🚨 Sensor threshold exceeded!');
+  console.log('Value:', event.context.sensor.value);
+});
+
+let reading = { sensor: { value: 95 } };
+
+statefulEngine.evaluate('sensor', sensorAlert, reading);
+// No trigger
+
+reading.sensor.value = 110;
+statefulEngine.evaluate('sensor', sensorAlert, reading);
+// 🚨 Sensor threshold exceeded!
+// Value: 110
+```
+
+---
+
+## History Tracking
+
+Enable history to review past evaluations.
+
+```javascript
+const engine = new StatefulRuleEngine(baseEngine, {
+  storeHistory: true,
+  maxHistorySize: 100
+});
+
+const rule = { changed: ['value'] };
+
+// Evaluate multiple times
+engine.evaluate('track', rule, { value: 10 });
+engine.evaluate('track', rule, { value: 20 });
+engine.evaluate('track', rule, { value: 30 });
+
+// Get history
+const history = engine.getHistory('track');
+
+console.log(history);
+// [
+//   { context: { value: 10 }, result: { success: false }, timestamp: ... },
+//   { context: { value: 20 }, result: { success: true }, timestamp: ... },
+//   { context: { value: 30 }, result: { success: true }, timestamp: ... }
+// ]
+```
+
+---
+
+## State Management
+
+```javascript
+// Get current state for a rule
+const state = statefulEngine.getState('temp-alert');
+
+// Clear state for specific rule
+statefulEngine.clearState('temp-alert');
+
+// Clear all states
+statefulEngine.clearState();
+
+// Remove event listeners
+statefulEngine.removeAllListeners('triggered');
+```
+
+---
+
+## Trigger Modes
+
+### Default Mode (false → true only)
+
+```javascript
+const engine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: false // Default
+});
+
+const rule = { eq: ['status', 'active'] };
+
+// false → true: triggers
+engine.evaluate('status', rule, { status: 'inactive' }); // false, no trigger
+engine.evaluate('status', rule, { status: 'active' }); // true, TRIGGERS
+
+// true → true: no trigger
+engine.evaluate('status', rule, { status: 'active' }); // true, no trigger
+
+// true → false: untriggers
+engine.evaluate('status', rule, { status: 'inactive' }); // false, UNTRIGGERS
+```
+
+### Every Change Mode
+
+```javascript
+const engine = new StatefulRuleEngine(baseEngine, {
+  triggerOnEveryChange: true
+});
+
+// Triggers on ANY result change
+engine.evaluate('status', rule, { status: 'inactive' }); // false, triggers (first eval)
+engine.evaluate('status', rule, { status: 'active' }); // true, triggers (changed)
+engine.evaluate('status', rule, { status: 'active' }); // true, no trigger (no change)
+engine.evaluate('status', rule, { status: 'inactive' }); // false, triggers (changed)
+```
+
+---
+
+## Complete Example
+
+```javascript
+import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
+
+const baseEngine = createRuleEngine();
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  storeHistory: true,
+  maxHistorySize: 50
+});
+
+// Define rules
+const rules = {
+  'high-temp': {
+    and: [
+      { gte: ['temperature', 30] },
+      { increased: ['temperature'] }
+    ]
+  },
+  'low-stock': {
+    and: [
+      { decreased: ['stock'] },
+      { lte: ['stock', 10] }
+    ]
+  },
+  'order-complete': {
+    changedTo: ['status', 'completed']
+  }
+};
+
+// Set up event handlers
+statefulEngine.on('triggered', (event) => {
+  console.log(`🔔 Rule triggered: ${event.ruleId}`);
+
+  switch (event.ruleId) {
+    case 'high-temp':
+      console.log('⚠️ Temperature alert!');
+      break;
+    case 'low-stock':
+      console.log('📦 Reorder needed!');
+      break;
+    case 'order-complete':
+      console.log('✅ Order completed!');
+      break;
+  }
+});
+
+// Monitor data changes
+let data = {
+  temperature: 25,
+  stock: 50,
+  status: 'pending'
+};
+
+// Initial evaluation
+Object.keys(rules).forEach(ruleId => {
+  statefulEngine.evaluate(ruleId, rules[ruleId], data);
+});
+
+// Update data
+data.temperature = 32;
+data.stock = 8;
+data.status = 'completed';
+
+// Re-evaluate
+Object.keys(rules).forEach(ruleId => {
+  statefulEngine.evaluate(ruleId, rules[ruleId], data);
+});
+
+// 🔔 Rule triggered: high-temp
+// ⚠️ Temperature alert!
+// 🔔 Rule triggered: low-stock
+// 📦 Reorder needed!
+// 🔔 Rule triggered: order-complete
+// ✅ Order completed!
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="1. Use Specific Rule IDs">
+    Use descriptive IDs like 'temp-alert' not 'rule1'.
+  </Accordion>
+
+  <Accordion title="2. Combine State and Value Checks">
+    Use `and` to check both state change and threshold.
+  </Accordion>
+
+  <Accordion title="3. Clear State When Needed">
+    Clear state when data schema changes or resets.
+  </Accordion>
+
+  <Accordion title="4. Limit History Size">
+    Set `maxHistorySize` to prevent memory issues.
+  </Accordion>
+
+  <Accordion title="5. Remove Listeners">
+    Clean up event listeners when done.
+  </Accordion>
+
+  <Accordion title="6. Use Batch for Multiple Rules">
+    `evaluateBatch()` is more efficient than multiple calls.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="State Operators" icon="rotate" href="/operators/state">
+    changed, increased, decreased
+  </Card>
+  <Card title="StatefulRuleEngine API" icon="gear" href="/api-reference/stateful-engine">
+    Full API reference
+  </Card>
+  <Card title="Basic Rules" icon="play" href="/examples/basic-rules">
+    Simple validation examples
+  </Card>
+  <Card title="Real-World Scenarios" icon="globe" href="/examples/real-world-scenarios">
+    Production examples
+  </Card>
+</CardGroup>

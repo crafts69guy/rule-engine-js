@@ -1,0 +1,265 @@
+---
+title: 'Path Resolver'
+description: 'Safe nested data access with dot notation and security features'
+---
+
+## Overview
+
+The PathResolver handles safe resolution of dot-notation paths in nested data structures. It provides caching, security features, and protection against common vulnerabilities.
+
+<Info>
+  The PathResolver is automatically used by the Rule Engine for all data access. You rarely need to
+  interact with it directly.
+</Info>
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Dot Notation" icon="route">
+    Access nested data with simple path strings like `user.profile.email`
+  </Card>
+
+<Card title="Security First" icon="shield">
+  Built-in protection against prototype pollution and malicious access
+</Card>
+
+<Card title="Performance Caching" icon="bolt">
+  LRU cache for frequently accessed paths
+</Card>
+
+  <Card title="Array Access" icon="list">
+    Support for array index notation like `users[0].name`
+  </Card>
+</CardGroup>
+
+## Path Syntax
+
+### Basic Paths
+
+```javascript
+const data = {
+  user: {
+    name: 'John Doe',
+    profile: {
+      email: 'john@example.com',
+      settings: {
+        theme: 'dark',
+      },
+    },
+  },
+};
+
+// Access nested properties
+engine.resolvePath(data, 'user.name'); // 'John Doe'
+engine.resolvePath(data, 'user.profile.email'); // 'john@example.com'
+engine.resolvePath(data, 'user.profile.settings.theme'); // 'dark'
+```
+
+### Array Paths
+
+```javascript
+const data = {
+  users: [
+    { name: 'Alice', age: 30 },
+    { name: 'Bob', age: 25 },
+  ],
+  tags: ['admin', 'verified'],
+};
+
+// Array index access
+engine.resolvePath(data, 'users[0].name'); // 'Alice'
+engine.resolvePath(data, 'users[1].age'); // 25
+engine.resolvePath(data, 'tags[0]'); // 'admin'
+```
+
+### Undefined Paths
+
+```javascript
+const data = { user: { name: 'John' } };
+
+// Non-existent paths return undefined
+engine.resolvePath(data, 'user.email'); // undefined
+engine.resolvePath(data, 'user.profile.theme'); // undefined
+engine.resolvePath(data, 'missing.path'); // undefined
+```
+
+## Security Features
+
+### Prototype Pollution Protection
+
+<Warning>The PathResolver automatically blocks access to dangerous prototype properties.</Warning>
+
+```javascript
+const maliciousData = {
+  __proto__: { isAdmin: true },
+  constructor: { prototype: { role: 'admin' } },
+};
+
+// These paths are blocked
+engine.resolvePath(maliciousData, '__proto__.isAdmin'); // undefined
+engine.resolvePath(maliciousData, 'constructor.prototype.role'); // undefined
+```
+
+**Blocked Properties:**
+
+- `__proto__`
+- `constructor`
+- `prototype`
+
+### Function Access Prevention
+
+```javascript
+const data = {
+  user: { name: 'John' },
+  dangerousFunc: () => {
+    /* malicious code */
+  },
+  utils: {
+    helper: () => {
+      /* code */
+    },
+  },
+};
+
+// Functions are blocked by default
+engine.resolvePath(data, 'dangerousFunc'); // undefined
+engine.resolvePath(data, 'utils.helper'); // undefined
+```
+
+## Caching
+
+The PathResolver uses an LRU cache to optimize performance:
+
+```javascript
+const config = {
+  enableCache: true, // Enable path caching
+  maxCacheSize: 500, // Maximum cached paths
+};
+
+const engine = createRuleEngine(config);
+
+// First access - cache miss
+engine.resolvePath(data, 'user.profile.email'); // Cached
+
+// Second access - cache hit (faster)
+engine.resolvePath(data, 'user.profile.email'); // From cache
+```
+
+<Tip>
+  Cache hit rates typically exceed 95% in production workloads, significantly improving performance.
+</Tip>
+
+## Configuration
+
+<ParamField path="enableCache" type="boolean" default="true">
+  Enable LRU caching for path resolution
+</ParamField>
+
+<ParamField path="maxCacheSize" type="number" default="500">
+  Maximum number of paths to cache
+</ParamField>
+
+<ParamField path="allowPrototypeAccess" type="boolean" default="false">
+  Allow access to prototype properties (dangerous - keep false in production)
+</ParamField>
+
+<ParamField path="allowFunctionAccess" type="boolean" default="false">
+  Allow resolution of function properties
+</ParamField>
+
+## Direct Usage
+
+While the PathResolver is used automatically by the engine, you can access it directly:
+
+```javascript
+import { PathResolver } from 'rule-engine-js';
+
+const resolver = new PathResolver({
+  enableCache: true,
+  maxCacheSize: 1000,
+});
+
+const data = {
+  user: {
+    profile: {
+      name: 'Jane Doe',
+      email: 'jane@example.com',
+    },
+  },
+};
+
+const name = resolver.resolvePath(data, 'user.profile.name');
+console.log(name); // 'Jane Doe'
+
+// Get cache stats
+const stats = resolver.getCacheStats();
+console.log(stats); // { size: 1, maxSize: 1000 }
+
+// Clear cache
+resolver.clearCache();
+```
+
+## Performance Tips
+
+<CardGroup cols={2}>
+  <Card title="Consistent Paths" icon="arrows-to-circle">
+    Use consistent path strings to maximize cache hits
+  </Card>
+
+<Card title="Shallow Access" icon="layer-group">
+  Prefer shallower paths when possible for faster resolution
+</Card>
+
+<Card title="Avoid Deep Nesting" icon="circle-exclamation">
+  Excessive nesting (>5 levels) impacts performance
+</Card>
+
+  <Card title="Monitor Cache" icon="chart-line">
+    Check cache stats to optimize cache size
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Safe Property Access
+
+```javascript
+// Instead of this (can throw errors)
+const email = data.user.profile.email;
+
+// Use PathResolver (safe)
+const email = engine.resolvePath(data, 'user.profile.email', 'default@example.com');
+```
+
+### Dynamic Path Building
+
+```javascript
+function getUserField(userId, field) {
+  const path = `users[${userId}].${field}`;
+  return engine.resolvePath(data, path);
+}
+
+const name = getUserField(0, 'name');
+const email = getUserField(0, 'email');
+```
+
+### Validation
+
+```javascript
+function validatePaths(data, requiredPaths) {
+  return requiredPaths.every((path) => engine.resolvePath(data, path) !== undefined);
+}
+
+const isValid = validatePaths(userData, ['user.email', 'user.profile.name', 'user.settings.theme']);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Rule Engine" icon="gears" href="/essentials/rule-engine">
+    Learn how the engine uses PathResolver
+  </Card>
+  <Card title="Security Guide" icon="lock" href="/guides/security">
+    Deep dive into security features
+  </Card>
+</CardGroup>
