@@ -409,13 +409,16 @@ describe('StatefulRuleEngine', () => {
       };
 
       const context = { status: 'active', score: 85 };
-      const results = statefulEngine.evaluateBatch(rules, context);
+      const batch = statefulEngine.evaluateBatch(rules, context);
 
-      expect(results).toHaveProperty('statusChanged');
-      expect(results).toHaveProperty('scoreIncreased');
-      expect(results).toHaveProperty('isActive');
+      expect(batch.results).toHaveProperty('statusChanged');
+      expect(batch.results).toHaveProperty('scoreIncreased');
+      expect(batch.results).toHaveProperty('isActive');
+      expect(batch.success).toBe(true);
+      expect(batch.successCount).toBe(3);
+      expect(batch.errorCount).toBe(0);
 
-      expect(results.isActive.success).toBe(true); // Non-stateful rule
+      expect(batch.results.isActive.success).toBe(true); // Non-stateful rule
     });
 
     it('should maintain independent state for each rule', () => {
@@ -428,10 +431,11 @@ describe('StatefulRuleEngine', () => {
       statefulEngine.evaluateBatch(rules, { value: 1 });
 
       // Second batch - both should detect change
-      const results = statefulEngine.evaluateBatch(rules, { value: 2 });
+      const batch = statefulEngine.evaluateBatch(rules, { value: 2 });
 
-      expect(results.rule1.success).toBe(true);
-      expect(results.rule2.success).toBe(true);
+      expect(batch.results.rule1.success).toBe(true);
+      expect(batch.results.rule2.success).toBe(true);
+      expect(batch.success).toBe(true);
     });
 
     it('should support batch evaluation options', () => {
@@ -444,7 +448,7 @@ describe('StatefulRuleEngine', () => {
       statefulEngine.evaluateBatch(rules, { value: 2 }); // triggered
 
       // Third evaluation with triggerOnEveryChange
-      const results = statefulEngine.evaluateBatch(
+      const batch = statefulEngine.evaluateBatch(
         rules,
         { value: 3 },
         {
@@ -452,7 +456,127 @@ describe('StatefulRuleEngine', () => {
         }
       );
 
-      expect(results.rule1.triggered).toBe(true);
+      expect(batch.results.rule1.triggered).toBe(true);
+      expect(batch.success).toBe(true);
+    });
+
+    describe('Error Handling (Phase 2)', () => {
+      it('should handle errors gracefully and continue by default', () => {
+        // Create a rule that will actually throw an error (malformed arguments)
+        const rules = {
+          validRule: { eq: ['status', 'active'] },
+          errorRule: { gt: 'not-an-array' }, // Will throw error - invalid format
+          anotherValidRule: { gte: ['score', 50] },
+        };
+
+        const batch = statefulEngine.evaluateBatch(rules, {
+          status: 'active',
+          score: 75,
+        });
+
+        expect(batch.success).toBe(false);
+        expect(batch.successCount).toBe(2);
+        expect(batch.errorCount).toBe(1);
+        expect(batch.totalCount).toBe(3);
+
+        expect(batch.results.validRule.success).toBe(true);
+        expect(batch.results.errorRule.error).toBeDefined();
+        expect(batch.results.errorRule.success).toBe(false);
+        expect(batch.results.anotherValidRule.success).toBe(true);
+      });
+
+      it('should collect error details when enabled', () => {
+        const rules = {
+          errorRule: { gt: 'malformed' }, // Malformed rule causes error
+        };
+
+        const batch = statefulEngine.evaluateBatch(rules, { value: 1 });
+
+        expect(batch.errors).toBeDefined();
+        expect(batch.errors).toHaveLength(1);
+        expect(batch.errors[0]).toMatchObject({
+          ruleId: 'errorRule',
+          rule: { gt: 'malformed' },
+          error: {
+            message: expect.any(String),
+            operator: 'gt',
+          },
+          timestamp: expect.any(String),
+        });
+      });
+
+      it('should not collect errors when collectErrors is false', () => {
+        const rules = {
+          errorRule: { gt: 'malformed' },
+        };
+
+        const batch = statefulEngine.evaluateBatch(rules, { value: 1 }, { collectErrors: false });
+
+        expect(batch.errors).toBeUndefined();
+        expect(batch.results.errorRule.error).toBeDefined();
+        expect(batch.success).toBe(false);
+      });
+
+      it('should stop on first error when stopOnError is true', () => {
+        const rules = {
+          rule1: { eq: ['status', 'active'] },
+          rule2: { gt: 'malformed' }, // Will cause error
+          rule3: { lte: ['score', 100] }, // Should not be evaluated
+        };
+
+        const batch = statefulEngine.evaluateBatch(
+          rules,
+          { status: 'active', score: 75 },
+          { stopOnError: true }
+        );
+
+        expect(batch.success).toBe(false);
+        expect(batch.successCount).toBe(1);
+        expect(batch.errorCount).toBe(1);
+
+        expect(batch.results.rule1.success).toBe(true);
+        expect(batch.results.rule2.error).toBeDefined();
+        expect(batch.results.rule3).toBeUndefined(); // Not evaluated
+      });
+
+      it('should include error metadata in results', () => {
+        const rules = {
+          errorRule: { between: 'not-array' }, // Malformed
+        };
+
+        const batch = statefulEngine.evaluateBatch(rules, { value: 5 });
+
+        expect(batch.results.errorRule).toMatchObject({
+          success: false,
+          error: expect.any(String),
+          operator: 'between',
+        });
+      });
+
+      it('should handle all rules failing', () => {
+        const rules = {
+          bad1: { gt: 'bad' },
+          bad2: { lt: 'bad' },
+          bad3: { between: 'bad' },
+        };
+
+        const batch = statefulEngine.evaluateBatch(rules, { value: 1 });
+
+        expect(batch.success).toBe(false);
+        expect(batch.successCount).toBe(0);
+        expect(batch.errorCount).toBe(3);
+        expect(batch.errors).toHaveLength(3);
+      });
+
+      it('should handle empty rules object', () => {
+        const batch = statefulEngine.evaluateBatch({}, { value: 1 });
+
+        expect(batch.success).toBe(true);
+        expect(batch.successCount).toBe(0);
+        expect(batch.errorCount).toBe(0);
+        expect(batch.totalCount).toBe(0);
+        expect(batch.results).toEqual({});
+      });
     });
   });
 

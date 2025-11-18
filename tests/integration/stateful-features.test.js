@@ -69,16 +69,16 @@ describe('Stateful Features Integration', () => {
         );
 
         // Check significant temperature changes
-        expect(results[0].significantChange.triggered).toBe(false); // Initial
-        expect(results[1].significantChange.triggered).toBe(false); // Only 2° change
-        expect(results[2].significantChange.triggered).toBe(true); // 6° change from 72
-        expect(results[4].significantChange.triggered).toBe(true); // 30° drop
+        expect(results[0].results.significantChange.triggered).toBe(false); // Initial
+        expect(results[1].results.significantChange.triggered).toBe(false); // Only 2° change
+        expect(results[2].results.significantChange.triggered).toBe(true); // 6° change from 72
+        expect(results[4].results.significantChange.triggered).toBe(true); // 30° drop
 
         // Check overheating detection
-        expect(results[3].overheating.triggered).toBe(true); // Above 80° and increased - first trigger
+        expect(results[3].results.overheating.triggered).toBe(true); // Above 80° and increased - first trigger
 
         // Check cooling detection
-        expect(results[4].cooling.triggered).toBe(true); // Below 60° and decreasing
+        expect(results[4].results.cooling.triggered).toBe(true); // Below 60° and decreasing
       });
     });
 
@@ -106,9 +106,9 @@ describe('Stateful Features Integration', () => {
           statefulEngine.evaluateBatch(userRules, activity)
         );
 
-        expect(results[1].loginStreakBroken.triggered).toBe(true); // Streak broken
-        expect(results[2].privilegeEscalation.triggered).toBe(true); // Became admin
-        expect(results[3].suspiciousActivity.triggered).toBe(true); // Failed attempts increased above threshold
+        expect(results[1].results.loginStreakBroken.triggered).toBe(true); // Streak broken
+        expect(results[2].results.privilegeEscalation.triggered).toBe(true); // Became admin
+        expect(results[3].results.suspiciousActivity.triggered).toBe(true); // Failed attempts increased above threshold
       });
     });
 
@@ -243,9 +243,9 @@ describe('Stateful Features Integration', () => {
       // Second evaluation - everything changed
       const results = statefulEngine.evaluateBatch(rules, userData[1]);
 
-      expect(results.userStatusChange.triggered).toBe(true);
-      expect(results.userScoreIncrease.triggered).toBe(true);
-      expect(results.userRoleChange.triggered).toBe(true);
+      expect(results.results.userStatusChange.triggered).toBe(true);
+      expect(results.results.userScoreIncrease.triggered).toBe(true);
+      expect(results.results.userRoleChange.triggered).toBe(true);
     });
   });
 

@@ -513,15 +513,89 @@ export class StatefulRuleEngine {
   }
 
   /**
-   * Batch evaluate multiple rules
+   * Batch evaluate multiple rules with enhanced error handling
    */
   evaluateBatch(rules, context, options = {}) {
+    const batchOptions = {
+      stopOnError: options.stopOnError || false, // Continue on error by default
+      collectErrors: options.collectErrors !== false, // Collect errors by default
+      ...options,
+    };
+
     const results = {};
+    const errors = [];
+    let successCount = 0;
+    let errorCount = 0;
 
     for (const [ruleId, rule] of Object.entries(rules)) {
-      results[ruleId] = this.evaluate(ruleId, rule, context, options);
+      try {
+        const result = this.evaluate(ruleId, rule, context, batchOptions);
+        results[ruleId] = result;
+
+        // Check if the result contains an error (engine returns error info in result)
+        if (result.error) {
+          errorCount++;
+
+          // Collect error information
+          if (batchOptions.collectErrors) {
+            errors.push({
+              ruleId,
+              rule,
+              error: {
+                message: result.error,
+                operator: result.operator,
+                details: result.details,
+              },
+              timestamp: result.timestamp,
+            });
+          }
+
+          // Stop processing if stopOnError is enabled
+          if (batchOptions.stopOnError) {
+            break;
+          }
+        } else {
+          successCount++;
+        }
+      } catch (error) {
+        // Handle unexpected exceptions (shouldn't normally happen)
+        errorCount++;
+
+        // Collect error information
+        if (batchOptions.collectErrors) {
+          errors.push({
+            ruleId,
+            rule,
+            error: {
+              message: error.message,
+              name: error.name,
+              stack: error.stack,
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Store error result
+        results[ruleId] = {
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        };
+
+        // Stop processing if stopOnError is enabled
+        if (batchOptions.stopOnError) {
+          break;
+        }
+      }
     }
 
-    return results;
+    return {
+      results,
+      success: errorCount === 0,
+      successCount,
+      errorCount,
+      totalCount: Object.keys(rules).length,
+      errors: batchOptions.collectErrors ? errors : undefined,
+    };
   }
 }
