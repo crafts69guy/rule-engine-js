@@ -45,7 +45,6 @@ export class PathResolver {
 
       return finalResult;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('error', error);
       // Return default value on any error
       return defaultValue;

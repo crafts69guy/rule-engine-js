@@ -16,6 +16,10 @@ describe('StatefulRuleEngine', () => {
       expect(statefulEngine.options.triggerOnEveryChange).toBe(false);
       expect(statefulEngine.options.storeHistory).toBe(false);
       expect(statefulEngine.options.maxHistorySize).toBe(100);
+      expect(statefulEngine.options.stateExpirationMs).toBeNull();
+      expect(statefulEngine.options.cleanupIntervalMs).toBe(60000);
+      expect(statefulEngine.options.enableDeepCopy).toBe(true);
+      expect(statefulEngine.options.maxListeners).toBe(100);
     });
 
     it('should accept custom options', () => {
@@ -23,11 +27,19 @@ describe('StatefulRuleEngine', () => {
         triggerOnEveryChange: true,
         storeHistory: true,
         maxHistorySize: 50,
+        stateExpirationMs: 5000,
+        enableDeepCopy: false,
+        maxListeners: 50,
       });
 
       expect(customEngine.options.triggerOnEveryChange).toBe(true);
       expect(customEngine.options.storeHistory).toBe(true);
       expect(customEngine.options.maxHistorySize).toBe(50);
+      expect(customEngine.options.stateExpirationMs).toBe(5000);
+      expect(customEngine.options.enableDeepCopy).toBe(false);
+      expect(customEngine.options.maxListeners).toBe(50);
+
+      if (customEngine.destroy) customEngine.destroy();
     });
 
     it('should initialize empty state storage', () => {
@@ -504,6 +516,356 @@ describe('StatefulRuleEngine', () => {
       statefulEngine.evaluate('test', rule, context1);
       const result = statefulEngine.evaluate('test', rule, context2);
       expect(result.success).toBe(true); // Should detect change
+    });
+  });
+
+  // ============================================================================
+  // PHASE 1 ENHANCEMENTS
+  // ============================================================================
+
+  describe('Phase 1: State TTL and Expiration', () => {
+    afterEach(() => {
+      if (statefulEngine && statefulEngine.cleanupTimer) {
+        statefulEngine.stopCleanupTimer();
+      }
+    });
+
+    it('should start cleanup timer when stateExpirationMs is set', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        stateExpirationMs: 5000,
+      });
+
+      expect(engine.cleanupTimer).not.toBeNull();
+      engine.destroy();
+    });
+
+    it('should not start cleanup timer when stateExpirationMs is null', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        stateExpirationMs: null,
+      });
+
+      expect(engine.cleanupTimer).toBeNull();
+    });
+
+    it('should track timestamps for each rule evaluation', () => {
+      const rule = { eq: ['status', 'active'] };
+      const context = { status: 'active' };
+
+      statefulEngine.evaluate('rule1', rule, context);
+
+      expect(statefulEngine.stateTimestamps.has('rule1')).toBe(true);
+      expect(statefulEngine.stateTimestamps.get('rule1')).toBeGreaterThan(0);
+    });
+
+    it('should update timestamp on each evaluation', (done) => {
+      const rule = { eq: ['status', 'active'] };
+      const context = { status: 'active' };
+
+      statefulEngine.evaluate('rule1', rule, context);
+      const firstTimestamp = statefulEngine.stateTimestamps.get('rule1');
+
+      setTimeout(() => {
+        statefulEngine.evaluate('rule1', rule, context);
+        const secondTimestamp = statefulEngine.stateTimestamps.get('rule1');
+
+        expect(secondTimestamp).toBeGreaterThan(firstTimestamp);
+        done();
+      }, 10);
+    });
+
+    it('should clean up expired states', (done) => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        stateExpirationMs: 50,
+      });
+
+      const rule = { eq: ['status', 'active'] };
+      engine.evaluate('rule1', rule, { status: 'active' });
+
+      expect(engine.previousStates.has('rule1')).toBe(true);
+
+      setTimeout(() => {
+        const result = engine.cleanupExpiredStates();
+
+        expect(result.removedCount).toBe(1);
+        expect(result.removedRules).toContain('rule1');
+        expect(engine.previousStates.has('rule1')).toBe(false);
+        expect(engine.stateTimestamps.has('rule1')).toBe(false);
+
+        engine.destroy();
+        done();
+      }, 100);
+    });
+
+    it('should not clean up non-expired states', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        stateExpirationMs: 10000,
+      });
+
+      const rule = { eq: ['status', 'active'] };
+      engine.evaluate('rule1', rule, { status: 'active' });
+
+      const result = engine.cleanupExpiredStates();
+
+      expect(result.removedCount).toBe(0);
+      expect(engine.previousStates.has('rule1')).toBe(true);
+
+      engine.destroy();
+    });
+
+    it('should stop and start cleanup timer', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        stateExpirationMs: 1000,
+      });
+
+      expect(engine.cleanupTimer).not.toBeNull();
+
+      engine.stopCleanupTimer();
+      expect(engine.cleanupTimer).toBeNull();
+
+      engine.startCleanupTimer();
+      expect(engine.cleanupTimer).not.toBeNull();
+
+      engine.destroy();
+    });
+  });
+
+  describe('Phase 1: Deep Copy for Context Storage', () => {
+    it('should deep copy context by default', () => {
+      const rule = { eq: ['user.status', 'active'] };
+      const context = { user: { status: 'active', name: 'John' } };
+
+      statefulEngine.evaluate('rule1', rule, context);
+
+      // Mutate original context
+      context.user.status = 'inactive';
+      context.user.name = 'Jane';
+
+      const previousContext = statefulEngine.previousStates.get('rule1');
+      expect(previousContext.user.status).toBe('active');
+      expect(previousContext.user.name).toBe('John');
+    });
+
+    it('should handle nested objects', () => {
+      const rule = { eq: ['data.level1.level2.value', 42] };
+      const context = {
+        data: { level1: { level2: { value: 42 } } },
+      };
+
+      statefulEngine.evaluate('rule1', rule, context);
+      context.data.level1.level2.value = 100;
+
+      const previousContext = statefulEngine.previousStates.get('rule1');
+      expect(previousContext.data.level1.level2.value).toBe(42);
+    });
+
+    it('should handle arrays', () => {
+      const rule = { in: ['item', 'items'] };
+      const context = { items: ['a', 'b', 'c'], item: 'b' };
+
+      statefulEngine.evaluate('rule1', rule, context);
+      context.items.push('d');
+      context.items[0] = 'z';
+
+      const previousContext = statefulEngine.previousStates.get('rule1');
+      expect(previousContext.items).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should handle Date objects', () => {
+      const rule = { eq: ['timestamp', 'timestamp'] };
+      const date = new Date('2025-01-01');
+      const context = { timestamp: date };
+
+      statefulEngine.evaluate('rule1', rule, context);
+      date.setFullYear(2026);
+
+      const previousContext = statefulEngine.previousStates.get('rule1');
+      expect(previousContext.timestamp.getFullYear()).toBe(2025);
+    });
+
+    it('should allow disabling deep copy', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        enableDeepCopy: false,
+      });
+
+      const rule = { eq: ['user.status', 'active'] };
+      const context = { user: { status: 'active' } };
+
+      engine.evaluate('rule1', rule, context);
+      context.user.status = 'inactive';
+
+      const previousContext = engine.previousStates.get('rule1');
+      expect(previousContext.user.status).toBe('inactive');
+    });
+  });
+
+  describe('Phase 1: Listener Management', () => {
+    it('should warn when listener count exceeds maxListeners', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      const engine = new StatefulRuleEngine(baseEngine, {
+        maxListeners: 2,
+      });
+
+      const callback = () => {};
+      engine.on('triggered', callback);
+      engine.on('triggered', callback);
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('2 listeners registered'));
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should get listener count for specific event', () => {
+      const callback1 = () => {};
+      const callback2 = () => {};
+
+      statefulEngine.on('triggered', callback1);
+      statefulEngine.on('triggered', callback2);
+      statefulEngine.on('changed', callback1);
+
+      expect(statefulEngine.getListenerCount('triggered')).toBe(2);
+      expect(statefulEngine.getListenerCount('changed')).toBe(1);
+      expect(statefulEngine.getListenerCount('evaluated')).toBe(0);
+    });
+
+    it('should get all listener counts', () => {
+      const callback = () => {};
+
+      statefulEngine.on('triggered', callback);
+      statefulEngine.on('triggered', callback);
+      statefulEngine.on('changed', callback);
+
+      const counts = statefulEngine.getAllListenerCounts();
+
+      expect(counts.triggered).toBe(2);
+      expect(counts.changed).toBe(1);
+      expect(counts.evaluated).toBe(0);
+    });
+
+    it('should remove all listeners for specific event', () => {
+      const callback = () => {};
+
+      statefulEngine.on('triggered', callback);
+      statefulEngine.on('triggered', callback);
+      statefulEngine.on('changed', callback);
+
+      statefulEngine.removeAllListeners('triggered');
+
+      expect(statefulEngine.getListenerCount('triggered')).toBe(0);
+      expect(statefulEngine.getListenerCount('changed')).toBe(1);
+    });
+
+    it('should remove all listeners for all events', () => {
+      const callback = () => {};
+
+      statefulEngine.on('triggered', callback);
+      statefulEngine.on('changed', callback);
+      statefulEngine.on('evaluated', callback);
+
+      statefulEngine.removeAllListeners();
+
+      expect(statefulEngine.getListenerCount('triggered')).toBe(0);
+      expect(statefulEngine.getListenerCount('changed')).toBe(0);
+      expect(statefulEngine.getListenerCount('evaluated')).toBe(0);
+    });
+  });
+
+  describe('Phase 1: State Statistics', () => {
+    it('should get state statistics', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        storeHistory: true,
+      });
+
+      const rule = { eq: ['status', 'active'] };
+      const callback = () => {};
+
+      engine.on('triggered', callback);
+      engine.evaluate('rule1', rule, { status: 'active' });
+      engine.evaluate('rule2', rule, { status: 'inactive' });
+
+      const stats = engine.getStateStats();
+
+      expect(stats.totalRules).toBe(2);
+      expect(stats.historySize).toBe(2);
+      expect(stats.listenerCounts.triggered).toBe(1);
+      expect(stats.oldestStateAge).toBeGreaterThanOrEqual(0);
+      expect(stats.memoryEstimate.states).toMatch(/~\d+KB/);
+    });
+
+    it('should calculate oldest state age', (done) => {
+      const rule = { eq: ['status', 'active'] };
+
+      statefulEngine.evaluate('rule1', rule, { status: 'active' });
+
+      setTimeout(() => {
+        statefulEngine.evaluate('rule2', rule, { status: 'active' });
+
+        const oldestAge = statefulEngine.getOldestStateAge();
+        expect(oldestAge).toBeGreaterThanOrEqual(50);
+        done();
+      }, 50);
+    });
+
+    it('should return null for oldest state age when no states exist', () => {
+      const oldestAge = statefulEngine.getOldestStateAge();
+      expect(oldestAge).toBeNull();
+    });
+
+    it('should estimate memory usage', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        storeHistory: true,
+      });
+
+      const rule = { eq: ['status', 'active'] };
+
+      for (let i = 0; i < 10; i++) {
+        engine.evaluate(`rule${i}`, rule, { status: 'active' });
+      }
+
+      const memoryEstimate = engine.estimateMemoryUsage();
+
+      expect(memoryEstimate.states).toMatch(/~\d+KB/);
+      expect(memoryEstimate.history).toMatch(/~\d+KB/);
+      expect(memoryEstimate.total).toMatch(/~\d+KB/);
+    });
+  });
+
+  describe('Phase 1: Destroy and Cleanup', () => {
+    it('should update clearState to handle timestamps', () => {
+      const rule = { eq: ['status', 'active'] };
+
+      statefulEngine.evaluate('rule1', rule, { status: 'active' });
+      statefulEngine.evaluate('rule2', rule, { status: 'active' });
+
+      statefulEngine.clearState('rule1');
+
+      expect(statefulEngine.previousStates.has('rule1')).toBe(false);
+      expect(statefulEngine.stateTimestamps.has('rule1')).toBe(false);
+      expect(statefulEngine.previousStates.has('rule2')).toBe(true);
+      expect(statefulEngine.stateTimestamps.has('rule2')).toBe(true);
+    });
+
+    it('should destroy engine and cleanup all resources', () => {
+      const engine = new StatefulRuleEngine(baseEngine, {
+        stateExpirationMs: 1000,
+        storeHistory: true,
+      });
+
+      const rule = { eq: ['status', 'active'] };
+      const callback = () => {};
+
+      engine.on('triggered', callback);
+      engine.evaluate('rule1', rule, { status: 'active' });
+
+      expect(engine.cleanupTimer).not.toBeNull();
+      expect(engine.previousStates.size).toBe(1);
+      expect(engine.getListenerCount('triggered')).toBe(1);
+
+      engine.destroy();
+
+      expect(engine.cleanupTimer).toBeNull();
+      expect(engine.previousStates.size).toBe(0);
+      expect(engine.getListenerCount('triggered')).toBe(0);
     });
   });
 });

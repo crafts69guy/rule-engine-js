@@ -276,7 +276,6 @@ export class RuleEngine {
       const contextId = this._getContextId(context);
       return `expr:${exprStr}:ctx:${contextId}`;
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('error', error);
       // Fallback for circular references or other JSON issues
       return `fallback:${Date.now()}:${Math.random()}`;
@@ -374,7 +373,6 @@ export class RuleEngine {
         : new RuleEngineError('Expression evaluation failed', null, { expr, context }, error);
 
     if (this.config.enableDebug) {
-      // eslint-disable-next-line no-console
       console.error('Rule evaluation failed:', ruleError);
     }
 

@@ -71,6 +71,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Flexible triggering modes (default: false → true transitions, optional: every change)
 - Pure change rule detection for optimized triggering logic
 
+**Phase 1 Enhancements (Production-Ready):**
+
+- **State TTL/Expiration**: Automatic cleanup of stale states with configurable expiration times
+- **Deep Copy Protection**: Prevents context mutation issues with circular reference handling
+- **Listener Management**: Memory leak detection with configurable thresholds and cleanup methods
+- **State Statistics**: Real-time monitoring of memory usage, rule counts, and state age
+- **Resource Cleanup**: `destroy()` method for proper resource management
+
 **RuleHelpers** (`src/helpers/RuleHelpers.js`)
 
 - Fluent API for building rule expressions
@@ -179,7 +187,7 @@ tests/
 
 **Current Test Metrics:**
 
-- **518 tests** passing
+- **537 tests** passing (includes 19 Phase 1 enhancement tests)
 - **>90% coverage** overall
 - Coverage by component:
   - Core: 89-100%
@@ -234,11 +242,22 @@ import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
 // Create base engine
 const baseEngine = createRuleEngine();
 
-// Wrap with StatefulRuleEngine
+// Wrap with StatefulRuleEngine with Phase 1 enhancements
 const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  // Core options
   triggerOnEveryChange: false, // Trigger only on false → true transitions (default)
   storeHistory: true, // Keep evaluation history
   maxHistorySize: 100, // Limit history entries
+
+  // Phase 1: Memory Management
+  stateExpirationMs: 3600000, // 1 hour TTL for states (null = no expiration)
+  cleanupIntervalMs: 60000, // Run cleanup every minute
+
+  // Phase 1: Context Protection
+  enableDeepCopy: true, // Deep copy contexts to prevent mutation (default: true)
+
+  // Phase 1: Listener Management
+  maxListeners: 100, // Warn when listener count exceeds threshold
 });
 ```
 
@@ -312,6 +331,91 @@ statefulEngine.clearState('temp-rule');
 
 // Clear all state
 statefulEngine.clearState();
+```
+
+### Phase 1: Advanced State Management
+
+```javascript
+// Monitor state statistics
+const stats = statefulEngine.getStateStats();
+console.log(stats);
+// {
+//   totalRules: 42,
+//   historySize: 100,
+//   listenerCounts: { triggered: 5, changed: 3, evaluated: 2, untriggered: 1 },
+//   oldestStateAge: 3245000, // milliseconds
+//   memoryEstimate: { states: '~42KB', history: '~100KB', total: '~142KB' }
+// }
+
+// Manual cleanup of expired states
+const cleanupResult = statefulEngine.cleanupExpiredStates();
+console.log(cleanupResult);
+// { removedCount: 5, removedRules: ['old-rule-1', 'old-rule-2', ...], timestamp: '...' }
+
+// Listener management
+console.log(statefulEngine.getListenerCount('triggered')); // 5
+console.log(statefulEngine.getAllListenerCounts()); // { triggered: 5, ... }
+
+// Remove all listeners for specific event
+statefulEngine.removeAllListeners('triggered');
+
+// Remove all listeners for all events
+statefulEngine.removeAllListeners();
+
+// Cleanup timer management
+statefulEngine.stopCleanupTimer(); // Stop automatic cleanup
+statefulEngine.startCleanupTimer(); // Restart automatic cleanup
+
+// Complete resource cleanup (important for long-running apps)
+statefulEngine.destroy(); // Stops timers, removes listeners, clears state
+```
+
+### Phase 1: Production Best Practices
+
+**Memory Management:**
+
+- Set `stateExpirationMs` for applications with many unique rule IDs
+- Use `getStateStats()` to monitor memory usage in production
+- Call `cleanupExpiredStates()` manually if you need immediate cleanup
+- Always call `destroy()` when shutting down the engine
+
+**Context Safety:**
+
+- Keep `enableDeepCopy: true` (default) to prevent mutation bugs
+- Only disable if you have performance constraints and manage context immutability manually
+- Deep copy handles circular references automatically
+
+**Listener Management:**
+
+- Monitor listener counts with `getListenerCount()` in development
+- Set appropriate `maxListeners` threshold for your use case
+- Always remove listeners when they're no longer needed
+- Use `removeAllListeners()` during cleanup or testing
+
+**Example Production Setup:**
+
+```javascript
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  stateExpirationMs: 3600000, // 1 hour TTL
+  cleanupIntervalMs: 300000, // Cleanup every 5 minutes
+  enableDeepCopy: true, // Safety first
+  maxListeners: 50, // Reasonable threshold
+  storeHistory: false, // Disable if not needed (saves memory)
+});
+
+// Monitor in production
+setInterval(() => {
+  const stats = statefulEngine.getStateStats();
+  if (stats.totalRules > 10000) {
+    console.warn('High rule count detected:', stats);
+  }
+}, 60000);
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  statefulEngine.destroy();
+  process.exit(0);
+});
 ```
 
 ## Journaling Workflow

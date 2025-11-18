@@ -51,7 +51,7 @@ export class TypeUtils {
     if (strict) {
       return left === right;
     }
-    return left == right; // eslint-disable-line eqeqeq
+    return left == right;
   }
 
   /**

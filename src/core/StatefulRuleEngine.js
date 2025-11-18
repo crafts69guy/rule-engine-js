@@ -13,12 +13,17 @@ export class StatefulRuleEngine {
       triggerOnEveryChange: options.triggerOnEveryChange || false,
       storeHistory: options.storeHistory || false,
       maxHistorySize: options.maxHistorySize || 100,
+      stateExpirationMs: options.stateExpirationMs || null, // null = no expiration
+      cleanupIntervalMs: options.cleanupIntervalMs || 60000, // 1 minute default
+      enableDeepCopy: options.enableDeepCopy !== false, // true by default
+      maxListeners: options.maxListeners || 100, // Warn at 100 listeners per event
       ...options,
     };
 
-    // State storage
+    // State storage with timestamps
     this.previousStates = new Map();
     this.ruleStates = new Map();
+    this.stateTimestamps = new Map(); // Track when each state was last accessed
     this.history = [];
 
     // Event listeners
@@ -29,6 +34,12 @@ export class StatefulRuleEngine {
       evaluated: [], // every evaluation
     };
 
+    // Start cleanup timer if expiration is enabled
+    this.cleanupTimer = null;
+    if (this.options.stateExpirationMs) {
+      this.startCleanupTimer();
+    }
+
     // Register state change operators
     const stateOps = new StateChangeOperators(
       this.engine._internal.pathResolver,
@@ -38,9 +49,60 @@ export class StatefulRuleEngine {
   }
 
   /**
+   * Deep copy utility to prevent context mutation issues
+   */
+  deepCopy(obj, seen = new WeakMap()) {
+    if (!this.options.enableDeepCopy) {
+      return obj;
+    }
+
+    // Handle primitives and null
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+
+    // Check for circular references
+    if (seen.has(obj)) {
+      return seen.get(obj);
+    }
+
+    // Handle Date
+    if (obj instanceof Date) {
+      return new Date(obj.getTime());
+    }
+
+    // Handle Array
+    if (Array.isArray(obj)) {
+      const copied = [];
+      seen.set(obj, copied);
+      for (const item of obj) {
+        copied.push(this.deepCopy(item, seen));
+      }
+      return copied;
+    }
+
+    // Handle Object
+    const copied = {};
+    seen.set(obj, copied);
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        // Skip internal meta properties
+        if (key === '_previous' || key === '_meta') {
+          continue;
+        }
+        copied[key] = this.deepCopy(obj[key], seen);
+      }
+    }
+    return copied;
+  }
+
+  /**
    * Evaluate rule with state tracking
    */
   evaluate(ruleId, rule, context, options = {}) {
+    // Update timestamp for this rule (for TTL tracking)
+    this.stateTimestamps.set(ruleId, Date.now());
+
     // Prepare context with previous state
     const previousContext = this.previousStates.get(ruleId);
     const enrichedContext = {
@@ -80,8 +142,8 @@ export class StatefulRuleEngine {
       timestamp: new Date().toISOString(),
     };
 
-    // Store current state for next evaluation
-    this.previousStates.set(ruleId, context);
+    // Store current state for next evaluation (with deep copy to prevent mutation)
+    this.previousStates.set(ruleId, this.deepCopy(context));
     this.ruleStates.set(ruleId, result);
 
     // Store history if enabled
@@ -178,6 +240,14 @@ export class StatefulRuleEngine {
   on(event, callback) {
     if (this.listeners[event]) {
       this.listeners[event].push(callback);
+
+      // Warn if listener count exceeds threshold
+      if (this.listeners[event].length >= this.options.maxListeners) {
+        console.warn(
+          `Warning: ${this.listeners[event].length} listeners registered for '${event}' event. ` +
+            `This may indicate a memory leak. Consider removing unused listeners or increasing maxListeners.`
+        );
+      }
     }
   }
 
@@ -194,6 +264,40 @@ export class StatefulRuleEngine {
   }
 
   /**
+   * Remove all listeners for a specific event or all events
+   */
+  removeAllListeners(event = null) {
+    if (event) {
+      if (this.listeners[event]) {
+        this.listeners[event] = [];
+      }
+    } else {
+      // Remove all listeners for all events
+      for (const evt in this.listeners) {
+        this.listeners[evt] = [];
+      }
+    }
+  }
+
+  /**
+   * Get the number of listeners for a specific event
+   */
+  getListenerCount(event) {
+    return this.listeners[event] ? this.listeners[event].length : 0;
+  }
+
+  /**
+   * Get all listener counts
+   */
+  getAllListenerCounts() {
+    const counts = {};
+    for (const event in this.listeners) {
+      counts[event] = this.listeners[event].length;
+    }
+    return counts;
+  }
+
+  /**
    * Emit event to all listeners
    */
   emit(event, data) {
@@ -202,7 +306,6 @@ export class StatefulRuleEngine {
         try {
           callback(data);
         } catch (error) {
-          // eslint-disable-next-line no-console
           console.error(`Error in ${event} listener:`, error);
         }
       });
@@ -227,17 +330,132 @@ export class StatefulRuleEngine {
   }
 
   /**
+   * Start the cleanup timer for expired states
+   */
+  startCleanupTimer() {
+    if (this.cleanupTimer) {
+      return; // Already running
+    }
+
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupExpiredStates();
+    }, this.options.cleanupIntervalMs);
+
+    // Allow Node.js process to exit even if timer is running
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
+  }
+
+  /**
+   * Stop the cleanup timer
+   */
+  stopCleanupTimer() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+  }
+
+  /**
+   * Clean up expired states based on TTL
+   */
+  cleanupExpiredStates() {
+    if (!this.options.stateExpirationMs) {
+      return { removedCount: 0 };
+    }
+
+    const now = Date.now();
+    const expirationThreshold = now - this.options.stateExpirationMs;
+    const removedRules = [];
+
+    for (const [ruleId, timestamp] of this.stateTimestamps.entries()) {
+      if (timestamp < expirationThreshold) {
+        this.previousStates.delete(ruleId);
+        this.ruleStates.delete(ruleId);
+        this.stateTimestamps.delete(ruleId);
+        removedRules.push(ruleId);
+      }
+    }
+
+    return {
+      removedCount: removedRules.length,
+      removedRules,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Clear all state
    */
   clearState(ruleId = null) {
     if (ruleId) {
       this.previousStates.delete(ruleId);
       this.ruleStates.delete(ruleId);
+      this.stateTimestamps.delete(ruleId);
     } else {
       this.previousStates.clear();
       this.ruleStates.clear();
+      this.stateTimestamps.clear();
       this.history = [];
     }
+  }
+
+  /**
+   * Get statistics about current state storage
+   */
+  getStateStats() {
+    return {
+      totalRules: this.previousStates.size,
+      historySize: this.history.length,
+      listenerCounts: this.getAllListenerCounts(),
+      oldestStateAge: this.getOldestStateAge(),
+      memoryEstimate: this.estimateMemoryUsage(),
+    };
+  }
+
+  /**
+   * Get the age of the oldest state in milliseconds
+   */
+  getOldestStateAge() {
+    if (this.stateTimestamps.size === 0) {
+      return null;
+    }
+
+    const now = Date.now();
+    let oldest = now;
+
+    for (const timestamp of this.stateTimestamps.values()) {
+      if (timestamp < oldest) {
+        oldest = timestamp;
+      }
+    }
+
+    return now - oldest;
+  }
+
+  /**
+   * Estimate memory usage (rough approximation)
+   */
+  estimateMemoryUsage() {
+    const bytesPerEntry = 1000; // Rough estimate: 1KB per state entry
+    const stateMemory = this.previousStates.size * bytesPerEntry;
+    const historyMemory = this.history.length * bytesPerEntry;
+
+    return {
+      states: `~${Math.round(stateMemory / 1024)}KB`,
+      history: `~${Math.round(historyMemory / 1024)}KB`,
+      total: `~${Math.round((stateMemory + historyMemory) / 1024)}KB`,
+    };
+  }
+
+  /**
+   * Destroy the engine and cleanup resources
+   */
+  destroy() {
+    this.stopCleanupTimer();
+    this.removeAllListeners();
+    this.clearState();
   }
 
   /**
