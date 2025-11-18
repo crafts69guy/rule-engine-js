@@ -45,7 +45,8 @@ describe('StatefulRuleEngine', () => {
     it('should initialize empty state storage', () => {
       expect(statefulEngine.previousStates).toBeInstanceOf(Map);
       expect(statefulEngine.ruleStates).toBeInstanceOf(Map);
-      expect(statefulEngine.history).toEqual([]);
+      expect(statefulEngine.historyManager).toBeDefined();
+      expect(statefulEngine.historyManager.size()).toBe(0);
     });
 
     it('should initialize event listeners', () => {
@@ -317,7 +318,7 @@ describe('StatefulRuleEngine', () => {
   describe('History Management', () => {
     it('should not store history by default', () => {
       statefulEngine.evaluate('test', { changed: ['value'] }, { value: 1 });
-      expect(statefulEngine.history).toEqual([]);
+      expect(statefulEngine.historyManager.size()).toBe(0);
     });
 
     it('should store history when enabled', () => {
@@ -327,8 +328,9 @@ describe('StatefulRuleEngine', () => {
 
       historyEngine.evaluate('test', { changed: ['value'] }, { value: 1 });
 
-      expect(historyEngine.history).toHaveLength(1);
-      expect(historyEngine.history[0]).toMatchObject({
+      const history = historyEngine.getAllHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({
         ruleId: 'test',
         result: expect.any(Object),
         timestamp: expect.any(String),
@@ -346,10 +348,11 @@ describe('StatefulRuleEngine', () => {
       historyEngine.evaluate('test', { changed: ['value'] }, { value: 2 });
       historyEngine.evaluate('test', { changed: ['value'] }, { value: 3 });
 
-      expect(historyEngine.history).toHaveLength(2); // Limited to 2
+      const history = historyEngine.getAllHistory();
+      expect(history).toHaveLength(2); // Limited to 2
       // Should keep the most recent 2
-      expect(historyEngine.history[0].context.value).toBe(2);
-      expect(historyEngine.history[1].context.value).toBe(3);
+      expect(history[0].context.value).toBe(2);
+      expect(history[1].context.value).toBe(3);
     });
 
     it('should get history for specific rule', () => {
@@ -393,7 +396,7 @@ describe('StatefulRuleEngine', () => {
 
       expect(historyEngine.previousStates.size).toBe(0);
       expect(historyEngine.ruleStates.size).toBe(0);
-      expect(historyEngine.history).toEqual([]);
+      expect(historyEngine.historyManager.size()).toBe(0);
     });
   });
 

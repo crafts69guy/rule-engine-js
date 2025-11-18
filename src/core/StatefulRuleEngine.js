@@ -1,4 +1,5 @@
 import { StateChangeOperators } from '../operators/state.js';
+import { GlobalHistoryManager, PerRuleHistoryManager } from './history/index.js';
 
 /**
  * ============================================================================
@@ -12,7 +13,8 @@ export class StatefulRuleEngine {
     this.options = {
       triggerOnEveryChange: options.triggerOnEveryChange || false,
       storeHistory: options.storeHistory || false,
-      maxHistorySize: options.maxHistorySize || 100,
+      maxHistorySize: options.maxHistorySize || 100, // Global limit (legacy)
+      maxHistoryPerRule: options.maxHistoryPerRule || null, // Per-rule limit (Phase 2)
       stateExpirationMs: options.stateExpirationMs || null, // null = no expiration
       cleanupIntervalMs: options.cleanupIntervalMs || 60000, // 1 minute default
       enableDeepCopy: options.enableDeepCopy !== false, // true by default
@@ -24,7 +26,13 @@ export class StatefulRuleEngine {
     this.previousStates = new Map();
     this.ruleStates = new Map();
     this.stateTimestamps = new Map(); // Track when each state was last accessed
-    this.history = [];
+
+    // History manager: Strategy Pattern (Phase 2)
+    if (this.options.maxHistoryPerRule) {
+      this.historyManager = new PerRuleHistoryManager(this.options.maxHistoryPerRule);
+    } else {
+      this.historyManager = new GlobalHistoryManager(this.options.maxHistorySize);
+    }
 
     // Event listeners
     this.listeners = {
@@ -148,7 +156,7 @@ export class StatefulRuleEngine {
 
     // Store history if enabled
     if (this.options.storeHistory) {
-      this.addToHistory(eventData);
+      this.historyManager.add(eventData);
     }
 
     // Fire events
@@ -313,20 +321,24 @@ export class StatefulRuleEngine {
   }
 
   /**
-   * Add to history with size limit
-   */
-  addToHistory(eventData) {
-    this.history.push(eventData);
-    if (this.history.length > this.options.maxHistorySize) {
-      this.history.shift();
-    }
-  }
-
-  /**
    * Get history for a specific rule
    */
   getHistory(ruleId) {
-    return this.history.filter((h) => h.ruleId === ruleId);
+    return this.historyManager.get(ruleId);
+  }
+
+  /**
+   * Get all history (across all rules)
+   */
+  getAllHistory() {
+    return this.historyManager.getAll();
+  }
+
+  /**
+   * Get history statistics
+   */
+  getHistoryStats() {
+    return this.historyManager.getStats();
   }
 
   /**
@@ -393,11 +405,12 @@ export class StatefulRuleEngine {
       this.previousStates.delete(ruleId);
       this.ruleStates.delete(ruleId);
       this.stateTimestamps.delete(ruleId);
+      this.historyManager.clearRule(ruleId);
     } else {
       this.previousStates.clear();
       this.ruleStates.clear();
       this.stateTimestamps.clear();
-      this.history = [];
+      this.historyManager.clear();
     }
   }
 
@@ -407,7 +420,7 @@ export class StatefulRuleEngine {
   getStateStats() {
     return {
       totalRules: this.previousStates.size,
-      historySize: this.history.length,
+      historySize: this.historyManager.size(),
       listenerCounts: this.getAllListenerCounts(),
       oldestStateAge: this.getOldestStateAge(),
       memoryEstimate: this.estimateMemoryUsage(),
@@ -440,7 +453,7 @@ export class StatefulRuleEngine {
   estimateMemoryUsage() {
     const bytesPerEntry = 1000; // Rough estimate: 1KB per state entry
     const stateMemory = this.previousStates.size * bytesPerEntry;
-    const historyMemory = this.history.length * bytesPerEntry;
+    const historyMemory = this.historyManager.size() * bytesPerEntry;
 
     return {
       states: `~${Math.round(stateMemory / 1024)}KB`,

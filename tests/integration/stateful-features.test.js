@@ -278,9 +278,10 @@ describe('Stateful Features Integration', () => {
       }
 
       // Should only keep the most recent 5
-      expect(historyEngine.history).toHaveLength(5);
-      expect(historyEngine.history[0].context.value).toBe(5);
-      expect(historyEngine.history[4].context.value).toBe(9);
+      const history = historyEngine.getAllHistory();
+      expect(history).toHaveLength(5);
+      expect(history[0].context.value).toBe(5);
+      expect(history[4].context.value).toBe(9);
     });
   });
 
