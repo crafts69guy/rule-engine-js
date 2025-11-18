@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Version**: 1.0.3-beta.0
 - **Status**: Beta release with stateful rule engine features
-- **Test Coverage**: 518 passing tests, >90% code coverage
+- **Test Coverage**: 544 passing tests, >90% code coverage
 - **Main Branch**: production
 - **Current Branch**: feature/stateful-operator
 
@@ -77,6 +77,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Deep Copy Protection**: Prevents context mutation issues with circular reference handling
 - **Listener Management**: Memory leak detection with configurable thresholds and cleanup methods
 - **State Statistics**: Real-time monitoring of memory usage, rule counts, and state age
+
+**Phase 2 Enhancements (Production-Ready):**
+
+- **History Management Strategy Pattern**:
+  - `GlobalHistoryManager`: FIFO queue with global size limit (legacy mode)
+  - `PerRuleHistoryManager`: Separate queues per rule to prevent history domination
+  - Configurable via `maxHistorySize` (global) or `maxHistoryPerRule` options
+- **Batch Evaluation Error Handling**:
+  - `stopOnError`: Option to halt batch processing on first error
+  - `collectErrors`: Option to gather detailed error information for debugging
+  - Returns structured response: `{ results, success, successCount, errorCount, totalCount, errors }`
+  - Handles both engine-returned errors (`result.error`) and unexpected exceptions
 - **Resource Cleanup**: `destroy()` method for proper resource management
 
 **RuleHelpers** (`src/helpers/RuleHelpers.js`)
@@ -258,6 +270,13 @@ const statefulEngine = new StatefulRuleEngine(baseEngine, {
 
   // Phase 1: Listener Management
   maxListeners: 100, // Warn when listener count exceeds threshold
+
+  // Phase 2: History Management Strategy
+  // Option 1: Global history (legacy mode - FIFO queue)
+  maxHistorySize: 100, // Global limit across all rules
+
+  // Option 2: Per-rule history (recommended for multi-rule scenarios)
+  // maxHistoryPerRule: 50, // Separate queue per rule
 });
 ```
 
@@ -316,8 +335,38 @@ const rules = {
   },
 };
 
-const results = statefulEngine.evaluateBatch(rules, orderData);
-// Returns object with results for each rule
+// Basic batch evaluation
+const batchResult = statefulEngine.evaluateBatch(rules, orderData);
+console.log(batchResult);
+// {
+//   results: {
+//     'payment-received': { success: true, triggered: true, ... },
+//     'inventory-low': { success: false, triggered: false, ... },
+//     'price-drop': { success: true, triggered: true, ... }
+//   },
+//   success: true,
+//   successCount: 2,
+//   errorCount: 0,
+//   totalCount: 3
+// }
+
+// Batch evaluation with error handling (Phase 2)
+const batchResultWithErrors = statefulEngine.evaluateBatch(rules, orderData, {
+  stopOnError: false, // Continue processing all rules even if one fails
+  collectErrors: true, // Gather detailed error information
+});
+
+if (!batchResultWithErrors.success) {
+  console.log('Errors encountered:', batchResultWithErrors.errors);
+  // [
+  //   {
+  //     ruleId: 'inventory-low',
+  //     rule: { ... },
+  //     error: { message: '...', operator: '...', details: '...' },
+  //     timestamp: '2023-...'
+  //   }
+  // ]
+}
 ```
 
 ### State Management
