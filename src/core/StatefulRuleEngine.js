@@ -19,6 +19,8 @@ export class StatefulRuleEngine {
       cleanupIntervalMs: options.cleanupIntervalMs || 60000, // 1 minute default
       enableDeepCopy: options.enableDeepCopy !== false, // true by default
       maxListeners: options.maxListeners || 100, // Warn at 100 listeners per event
+      // Phase 3: Persistence hooks
+      persistence: options.persistence || null,
       ...options,
     };
 
@@ -46,6 +48,16 @@ export class StatefulRuleEngine {
     this.cleanupTimer = null;
     if (this.options.stateExpirationMs) {
       this.startCleanupTimer();
+    }
+
+    // Phase 3: Persistence setup
+    this.persistenceTimer = null;
+    this.pendingSaves = new Set(); // Track rules pending save
+    if (this.options.persistence?.enabled) {
+      this.validatePersistenceConfig();
+      if (this.options.persistence.autoSaveInterval) {
+        this.startPersistenceTimer();
+      }
     }
 
     // Register state change operators
@@ -154,9 +166,20 @@ export class StatefulRuleEngine {
     this.previousStates.set(ruleId, this.deepCopy(context));
     this.ruleStates.set(ruleId, result);
 
+    // Phase 3: Mark rule for persistence
+    this.markForSave(ruleId);
+
     // Store history if enabled
     if (this.options.storeHistory) {
       this.historyManager.add(eventData);
+
+      // Phase 3: Save history to persistence if configured
+      if (this.options.persistence?.onHistorySave) {
+        // Don't await - fire and forget for performance
+        this.saveHistoryEntry(eventData).catch((err) => {
+          console.error('Failed to save history entry:', err);
+        });
+      }
     }
 
     // Fire events
@@ -465,7 +488,13 @@ export class StatefulRuleEngine {
   /**
    * Destroy the engine and cleanup resources
    */
-  destroy() {
+  async destroy() {
+    // Phase 3: Flush any pending saves before destroying
+    if (this.options.persistence?.enabled) {
+      await this.flushPendingSaves();
+      this.stopPersistenceTimer();
+    }
+
     this.stopCleanupTimer();
     this.removeAllListeners();
     this.clearState();
@@ -597,5 +626,241 @@ export class StatefulRuleEngine {
       totalCount: Object.keys(rules).length,
       errors: batchOptions.collectErrors ? errors : undefined,
     };
+  }
+
+  /**
+   * ============================================================================
+   * PHASE 3: PERSISTENCE HOOKS
+   * ============================================================================
+   */
+
+  /**
+   * Validate persistence configuration
+   */
+  validatePersistenceConfig() {
+    const { persistence } = this.options;
+
+    if (!persistence || !persistence.enabled) {
+      return;
+    }
+
+    // Validate required hooks if auto-save is enabled
+    if (persistence.autoSaveInterval && !persistence.onStateSave) {
+      throw new Error('persistence.onStateSave is required when autoSaveInterval is enabled');
+    }
+
+    // Validate hook types
+    if (persistence.onStateSave && typeof persistence.onStateSave !== 'function') {
+      throw new Error('persistence.onStateSave must be a function');
+    }
+
+    if (persistence.onStateLoad && typeof persistence.onStateLoad !== 'function') {
+      throw new Error('persistence.onStateLoad must be a function');
+    }
+
+    if (persistence.onHistorySave && typeof persistence.onHistorySave !== 'function') {
+      throw new Error('persistence.onHistorySave must be a function');
+    }
+
+    // Validate autoSaveInterval
+    if (persistence.autoSaveInterval && typeof persistence.autoSaveInterval !== 'number') {
+      throw new Error('persistence.autoSaveInterval must be a number');
+    }
+  }
+
+  /**
+   * Start the persistence timer for auto-save
+   */
+  startPersistenceTimer() {
+    if (this.persistenceTimer) {
+      return; // Already running
+    }
+
+    const interval = this.options.persistence.autoSaveInterval;
+    this.persistenceTimer = setInterval(async () => {
+      await this.flushPendingSaves();
+    }, interval);
+
+    // Allow Node.js process to exit even if timer is running
+    if (this.persistenceTimer.unref) {
+      this.persistenceTimer.unref();
+    }
+  }
+
+  /**
+   * Stop the persistence timer
+   */
+  stopPersistenceTimer() {
+    if (this.persistenceTimer) {
+      clearInterval(this.persistenceTimer);
+      this.persistenceTimer = null;
+    }
+  }
+
+  /**
+   * Flush all pending state saves
+   */
+  async flushPendingSaves() {
+    if (!this.options.persistence?.onStateSave) {
+      return;
+    }
+
+    const rulesToSave = Array.from(this.pendingSaves);
+    this.pendingSaves.clear();
+
+    const savePromises = rulesToSave.map(async (ruleId) => {
+      try {
+        const state = {
+          previousContext: this.previousStates.get(ruleId),
+          ruleState: this.ruleStates.get(ruleId),
+          timestamp: this.stateTimestamps.get(ruleId),
+        };
+
+        await this.options.persistence.onStateSave(ruleId, state);
+      } catch (error) {
+        console.error(`Failed to save state for rule ${ruleId}:`, error);
+        // Re-add to pending saves for retry
+        this.pendingSaves.add(ruleId);
+      }
+    });
+
+    await Promise.all(savePromises);
+  }
+
+  /**
+   * Mark a rule as having pending changes that need to be saved
+   */
+  markForSave(ruleId) {
+    if (this.options.persistence?.enabled) {
+      this.pendingSaves.add(ruleId);
+    }
+  }
+
+  /**
+   * Manually save state for a specific rule
+   */
+  async saveState(ruleId) {
+    if (!this.options.persistence?.onStateSave) {
+      throw new Error('persistence.onStateSave hook is not configured');
+    }
+
+    const state = {
+      previousContext: this.previousStates.get(ruleId),
+      ruleState: this.ruleStates.get(ruleId),
+      timestamp: this.stateTimestamps.get(ruleId),
+    };
+
+    await this.options.persistence.onStateSave(ruleId, state);
+    this.pendingSaves.delete(ruleId); // Remove from pending
+  }
+
+  /**
+   * Load state for a specific rule from persistence
+   */
+  async loadState(ruleId) {
+    if (!this.options.persistence?.onStateLoad) {
+      throw new Error('persistence.onStateLoad hook is not configured');
+    }
+
+    const state = await this.options.persistence.onStateLoad(ruleId);
+
+    if (state) {
+      if (state.previousContext !== undefined) {
+        this.previousStates.set(ruleId, state.previousContext);
+      }
+      if (state.ruleState !== undefined) {
+        this.ruleStates.set(ruleId, state.ruleState);
+      }
+      if (state.timestamp !== undefined) {
+        this.stateTimestamps.set(ruleId, state.timestamp);
+      }
+    }
+
+    return state;
+  }
+
+  /**
+   * Serialize entire engine state to a plain object
+   */
+  serialize() {
+    const states = {};
+    for (const [ruleId, previousContext] of this.previousStates.entries()) {
+      states[ruleId] = {
+        previousContext,
+        ruleState: this.ruleStates.get(ruleId),
+        timestamp: this.stateTimestamps.get(ruleId),
+      };
+    }
+
+    return {
+      states,
+      history: this.historyManager.getAll(),
+      options: {
+        triggerOnEveryChange: this.options.triggerOnEveryChange,
+        storeHistory: this.options.storeHistory,
+        maxHistorySize: this.options.maxHistorySize,
+        maxHistoryPerRule: this.options.maxHistoryPerRule,
+      },
+      metadata: {
+        serializedAt: new Date().toISOString(),
+        ruleCount: this.previousStates.size,
+        historySize: this.historyManager.size(),
+      },
+    };
+  }
+
+  /**
+   * Hydrate engine state from a serialized object
+   */
+  async hydrate(data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Hydration data must be an object');
+    }
+
+    // Clear existing state
+    this.clearState();
+
+    // Restore states
+    if (data.states) {
+      for (const [ruleId, state] of Object.entries(data.states)) {
+        if (state.previousContext !== undefined) {
+          this.previousStates.set(ruleId, state.previousContext);
+        }
+        if (state.ruleState !== undefined) {
+          this.ruleStates.set(ruleId, state.ruleState);
+        }
+        if (state.timestamp !== undefined) {
+          this.stateTimestamps.set(ruleId, state.timestamp);
+        }
+      }
+    }
+
+    // Restore history
+    if (data.history && Array.isArray(data.history)) {
+      for (const eventData of data.history) {
+        this.historyManager.add(eventData);
+      }
+    }
+
+    return {
+      restoredRules: Object.keys(data.states || {}).length,
+      restoredHistory: data.history?.length || 0,
+      metadata: data.metadata,
+    };
+  }
+
+  /**
+   * Save history entry to persistence
+   */
+  async saveHistoryEntry(eventData) {
+    if (!this.options.persistence?.onHistorySave) {
+      return;
+    }
+
+    try {
+      await this.options.persistence.onHistorySave(eventData);
+    } catch (error) {
+      console.error('Failed to save history entry:', error);
+    }
   }
 }
