@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Status
 
 - **Version**: 1.0.3-beta.0
-- **Status**: Beta release with stateful rule engine features
-- **Test Coverage**: 544 passing tests, >90% code coverage
+- **Status**: Beta release with Phase 3 production features complete
+- **Test Coverage**: 615 tests (614 passing, 1 skipped), >90% code coverage
 - **Main Branch**: production
 - **Current Branch**: feature/stateful-operator
 
@@ -90,6 +90,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Returns structured response: `{ results, success, successCount, errorCount, totalCount, errors }`
   - Handles both engine-returned errors (`result.error`) and unexpected exceptions
 - **Resource Cleanup**: `destroy()` method for proper resource management
+
+**Phase 3.2 Concurrency Control (Production-Ready):**
+
+- **ConcurrencyManager** (`src/core/concurrency/ConcurrencyManager.js`):
+  - Per-rule execution queues with configurable concurrency limits
+  - Automatic timeout handling with cleanup and callbacks
+  - Queue management with max size limits and overflow callbacks
+  - Promise-based async execution with proper error propagation
+  - Statistics tracking: active, queued, completed, timeout counts
+- **Integration**: All evaluation methods are now async (breaking change from Phase 2)
+- **Configuration**: `concurrency` option with `maxConcurrent`, `timeout`, `onTimeout`, `onQueueFull`
+
+**Phase 3.3 Enhanced Error Recovery (Production-Ready):**
+
+- **RetryManager** (`src/core/recovery/RetryStrategies.js`):
+  - Three retry strategies: exponential backoff, fixed delay, linear backoff
+  - Configurable max attempts, delays, and retryable error patterns
+  - Retry history tracking per rule with attempt timestamps
+  - Optional retry callback hooks
+- **CircuitBreaker** (`src/core/recovery/CircuitBreaker.js`):
+  - State machine: closed (normal), open (failing), half-open (testing)
+  - Configurable failure threshold and reset timeout
+  - Automatic state transitions with timer management
+  - Per-rule circuit tracking with statistics
+  - Optional circuit state change callbacks
+- **FallbackManager** (`src/core/recovery/FallbackManager.js`):
+  - Three-tier fallback: fallback rules, fallback values, default values
+  - Fallback history tracking per rule
+  - Optional fallback callback hooks
+- **ErrorRecoveryManager** (`src/core/recovery/ErrorRecoveryManager.js`):
+  - Coordinates all error recovery strategies
+  - Execution pipeline: Circuit Breaker → Retry → Fallback
+  - Error history and rate tracking per rule with time windows
+  - Comprehensive statistics across all recovery mechanisms
+- **Integration**: Wraps concurrency manager in evaluate() method
 
 **RuleHelpers** (`src/helpers/RuleHelpers.js`)
 
@@ -199,13 +234,19 @@ tests/
 
 **Current Test Metrics:**
 
-- **537 tests** passing (includes 19 Phase 1 enhancement tests)
+- **615 tests** (614 passing, 1 skipped)
+  - 19 Phase 1 tests (state management)
+  - 47 Phase 2 tests (history strategies, batch error handling)
+  - 31 Phase 3.2 tests (concurrency control)
+  - 11 Phase 3.3 tests (10 passing, 1 skipped - error recovery)
 - **>90% coverage** overall
 - Coverage by component:
   - Core: 89-100%
   - Operators: 87-100%
   - Helpers: 100%
   - Utils: 100%
+  - Concurrency: 95%+
+  - Recovery: 93%+
 
 ### Test Helpers
 
@@ -254,12 +295,18 @@ import { createRuleEngine, StatefulRuleEngine } from 'rule-engine-js';
 // Create base engine
 const baseEngine = createRuleEngine();
 
-// Wrap with StatefulRuleEngine with Phase 1 enhancements
+// Wrap with StatefulRuleEngine with all Phase 3 enhancements
 const statefulEngine = new StatefulRuleEngine(baseEngine, {
   // Core options
   triggerOnEveryChange: false, // Trigger only on false → true transitions (default)
   storeHistory: true, // Keep evaluation history
-  maxHistorySize: 100, // Limit history entries
+
+  // Phase 2: History Management Strategy
+  // Option 1: Global history (legacy mode - FIFO queue)
+  maxHistorySize: 100, // Global limit across all rules
+
+  // Option 2: Per-rule history (recommended for multi-rule scenarios)
+  // maxHistoryPerRule: 50, // Separate queue per rule
 
   // Phase 1: Memory Management
   stateExpirationMs: 3600000, // 1 hour TTL for states (null = no expiration)
@@ -271,12 +318,36 @@ const statefulEngine = new StatefulRuleEngine(baseEngine, {
   // Phase 1: Listener Management
   maxListeners: 100, // Warn when listener count exceeds threshold
 
-  // Phase 2: History Management Strategy
-  // Option 1: Global history (legacy mode - FIFO queue)
-  maxHistorySize: 100, // Global limit across all rules
+  // Phase 3.2: Concurrency Control
+  concurrency: {
+    maxConcurrent: 10, // Maximum concurrent evaluations per rule
+    timeout: 30000, // Evaluation timeout in milliseconds
+    onTimeout: (ruleId) => console.error(`Timeout: ${ruleId}`),
+    onQueueFull: (ruleId, queueSize) => console.warn(`Queue full: ${ruleId}`),
+  },
 
-  // Option 2: Per-rule history (recommended for multi-rule scenarios)
-  // maxHistoryPerRule: 50, // Separate queue per rule
+  // Phase 3.3: Error Recovery
+  errorRecovery: {
+    retry: {
+      enabled: true,
+      maxAttempts: 3,
+      strategy: 'exponential', // 'exponential', 'fixed', or 'linear'
+      initialDelay: 100,
+      maxDelay: 5000,
+      onRetry: (attempt, error, ruleId) => console.log(`Retry ${attempt}/${3}`),
+    },
+    circuitBreaker: {
+      enabled: true,
+      failureThreshold: 5,
+      resetTimeout: 60000,
+      onCircuitOpen: (ruleId, info) => console.error(`Circuit opened: ${ruleId}`),
+    },
+    fallback: {
+      enabled: true,
+      defaultValue: { success: false, fallback: true },
+      onFallback: (ruleId, type, value) => console.log(`Fallback: ${type}`),
+    },
+  },
 });
 ```
 
@@ -310,14 +381,14 @@ const temperatureAlert = {
   ],
 };
 
-// First evaluation
+// First evaluation (async as of Phase 3.2)
 let data = { temperature: 20 };
-statefulEngine.evaluate('temp-rule', temperatureAlert, data);
+await statefulEngine.evaluate('temp-rule', temperatureAlert, data);
 // Result: { success: false, triggered: false }
 
 // Second evaluation - temperature increased and is now ≥ 25
 data = { temperature: 26 };
-const result = statefulEngine.evaluate('temp-rule', temperatureAlert, data);
+const result = await statefulEngine.evaluate('temp-rule', temperatureAlert, data);
 // Result: { success: true, triggered: true }
 // Event 'triggered' is emitted
 ```
@@ -335,8 +406,8 @@ const rules = {
   },
 };
 
-// Basic batch evaluation
-const batchResult = statefulEngine.evaluateBatch(rules, orderData);
+// Basic batch evaluation (async as of Phase 3.2)
+const batchResult = await statefulEngine.evaluateBatch(rules, orderData);
 console.log(batchResult);
 // {
 //   results: {
@@ -350,8 +421,8 @@ console.log(batchResult);
 //   totalCount: 3
 // }
 
-// Batch evaluation with error handling (Phase 2)
-const batchResultWithErrors = statefulEngine.evaluateBatch(rules, orderData, {
+// Batch evaluation with error handling (Phase 2) - now async
+const batchResultWithErrors = await statefulEngine.evaluateBatch(rules, orderData, {
   stopOnError: false, // Continue processing all rules even if one fails
   collectErrors: true, // Gather detailed error information
 });

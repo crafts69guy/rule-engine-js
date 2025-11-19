@@ -46,6 +46,8 @@ const statefulEngine = new StatefulRuleEngine(baseEngine, {
 
 ## Configuration Options
 
+### Core Options
+
 <ParamField path="triggerOnEveryChange" type="boolean" default="false">
   When `false`, triggers only on false → true transitions. When `true`, triggers on any state change.
 </ParamField>
@@ -55,7 +57,66 @@ const statefulEngine = new StatefulRuleEngine(baseEngine, {
 </ParamField>
 
 <ParamField path="maxHistorySize" type="number" default="100">
-  Maximum number of history entries to store per rule.
+  Global limit for total history entries across all rules. Uses FIFO queue (legacy mode).
+</ParamField>
+
+<ParamField path="maxHistoryPerRule" type="number">
+  Per-rule history limit. Recommended for multi-rule scenarios to prevent history domination.
+</ParamField>
+
+### Phase 3.1: State Management Options
+
+<ParamField path="stateExpirationMs" type="number" default="null">
+  Time-to-live for rule states in milliseconds. Set to `null` for no expiration.
+</ParamField>
+
+<ParamField path="cleanupIntervalMs" type="number" default="60000">
+  Interval for automatic expired state cleanup (in milliseconds).
+</ParamField>
+
+<ParamField path="enableDeepCopy" type="boolean" default="true">
+  Deep copy contexts to prevent mutation. Handles circular references automatically.
+</ParamField>
+
+<ParamField path="maxListeners" type="number" default="100">
+  Threshold for listener count warnings to detect potential memory leaks.
+</ParamField>
+
+### Phase 3.2: Concurrency Control Options
+
+<ParamField path="concurrency" type="object">
+  Configure concurrent evaluation behavior.
+
+  **Properties:**
+  - `maxConcurrent` (number, default: 10): Maximum concurrent evaluations per rule
+  - `timeout` (number, default: 30000): Evaluation timeout in milliseconds
+  - `onTimeout` (function): Callback when evaluation times out
+  - `onQueueFull` (function): Callback when queue reaches capacity
+</ParamField>
+
+### Phase 3.3: Error Recovery Options
+
+<ParamField path="errorRecovery" type="object">
+  Configure error recovery strategies.
+
+  **Properties:**
+  - `enabled` (boolean, default: true): Enable error recovery
+  - `retry` (object): Retry configuration
+    - `enabled` (boolean): Enable retry mechanism
+    - `maxAttempts` (number, default: 3): Maximum retry attempts
+    - `strategy` (string): 'exponential', 'fixed', or 'linear'
+    - `initialDelay` (number, default: 100): Initial delay in ms
+    - `maxDelay` (number, default: 5000): Maximum delay cap
+    - `onRetry` (function): Callback on each retry
+  - `circuitBreaker` (object): Circuit breaker configuration
+    - `enabled` (boolean): Enable circuit breaker
+    - `failureThreshold` (number, default: 5): Failures before opening
+    - `resetTimeout` (number, default: 60000): Time before half-open state
+    - `onCircuitOpen` (function): Callback when circuit opens
+  - `fallback` (object): Fallback configuration
+    - `enabled` (boolean): Enable fallback strategies
+    - `defaultValue` (any): Default fallback value
+    - `onFallback` (function): Callback when fallback used
 </ParamField>
 
 ## Event System
@@ -203,23 +264,40 @@ statefulEngine.evaluateBatch(orderRules, orderData);
 
 ## Methods
 
-### evaluate()
+### Core Methods
+
+#### evaluate()
 
 Evaluate a single rule with state tracking:
 
 ```javascript
-const result = statefulEngine.evaluate(ruleId, rule, context);
+const result = await statefulEngine.evaluate(ruleId, rule, context);
 ```
 
-### evaluateBatch()
+<Note>All evaluation methods are now async as of Phase 3.2</Note>
 
-Evaluate multiple rules at once:
+#### evaluateBatch()
+
+Evaluate multiple rules at once with error handling:
 
 ```javascript
-const results = statefulEngine.evaluateBatch(rulesObject, context);
+const results = await statefulEngine.evaluateBatch(rulesObject, context, {
+  stopOnError: false,   // Continue processing all rules even if one fails
+  collectErrors: true,  // Gather detailed error information
+});
+
+// Result structure
+{
+  results: { ruleId: { success, triggered, ... }, ... },
+  success: true,
+  successCount: 5,
+  errorCount: 0,
+  totalCount: 5,
+  errors: []  // Array of error details if collectErrors: true
+}
 ```
 
-### getRuleState()
+#### getRuleState()
 
 Get current state of a specific rule:
 
@@ -227,7 +305,7 @@ Get current state of a specific rule:
 const state = statefulEngine.getRuleState(ruleId);
 ```
 
-### clearRuleState()
+#### clearRuleState()
 
 Clear state for a specific rule:
 
@@ -235,12 +313,178 @@ Clear state for a specific rule:
 statefulEngine.clearRuleState(ruleId);
 ```
 
-### getHistory()
+#### getHistory()
 
 Get evaluation history (if enabled):
 
 ```javascript
 const history = statefulEngine.getHistory(ruleId);
+```
+
+### Phase 3.1: State Management Methods
+
+#### getStateStats()
+
+Get comprehensive state statistics:
+
+```javascript
+const stats = statefulEngine.getStateStats();
+// {
+//   totalRules: 42,
+//   historySize: 100,
+//   listenerCounts: { triggered: 5, changed: 3, ... },
+//   oldestStateAge: 3245000,
+//   memoryEstimate: { states: '~42KB', history: '~100KB', total: '~142KB' }
+// }
+```
+
+#### cleanupExpiredStates()
+
+Manually trigger cleanup of expired states:
+
+```javascript
+const result = statefulEngine.cleanupExpiredStates();
+// { removedCount: 5, removedRules: ['old-rule-1', ...], timestamp: '...' }
+```
+
+#### getListenerCount()
+
+Get listener count for a specific event:
+
+```javascript
+const count = statefulEngine.getListenerCount('triggered');
+```
+
+#### getAllListenerCounts()
+
+Get listener counts for all events:
+
+```javascript
+const counts = statefulEngine.getAllListenerCounts();
+// { triggered: 5, changed: 3, evaluated: 2, untriggered: 1 }
+```
+
+#### startCleanupTimer() / stopCleanupTimer()
+
+Control automatic state cleanup:
+
+```javascript
+statefulEngine.stopCleanupTimer();  // Stop automatic cleanup
+statefulEngine.startCleanupTimer(); // Restart automatic cleanup
+```
+
+#### destroy()
+
+Complete resource cleanup (timers, listeners, state):
+
+```javascript
+await statefulEngine.destroy();
+```
+
+<Warning>
+Always call `destroy()` when shutting down to prevent memory leaks
+</Warning>
+
+### Phase 3.2: Concurrency Methods
+
+#### getConcurrencyStats()
+
+Get concurrency statistics for all rules:
+
+```javascript
+const stats = statefulEngine.getConcurrencyStats();
+// {
+//   'rule-1': { active: 2, queued: 5, completed: 100, timeout: 1 },
+//   'rule-2': { active: 0, queued: 0, completed: 50, timeout: 0 }
+// }
+```
+
+#### getConcurrencyState()
+
+Get current concurrency state for a specific rule:
+
+```javascript
+const state = statefulEngine.getConcurrencyState('rule-1');
+// { active: 2, queued: 5, completed: 100, timeout: 1 }
+```
+
+### Phase 3.3: Error Recovery Methods
+
+#### registerFallbackRule()
+
+Register a fallback rule for a specific rule:
+
+```javascript
+const primaryRule = { gt: ['temperature', 100] };
+const fallbackRule = { gte: ['temperature', 90] };
+
+statefulEngine.registerFallbackRule('temp-check', fallbackRule);
+```
+
+#### registerFallbackValue()
+
+Register a fallback value for a specific rule:
+
+```javascript
+statefulEngine.registerFallbackValue('temp-check', { fallback: true, value: false });
+```
+
+#### getErrorRecoveryStats()
+
+Get comprehensive error recovery statistics:
+
+```javascript
+const stats = statefulEngine.getErrorRecoveryStats();
+// {
+//   enabled: true,
+//   retry: { enabled: true, strategy: 'exponential', maxAttempts: 3, ... },
+//   circuitBreaker: { enabled: true, totalCircuits: 5, circuitStates: {...} },
+//   fallback: { enabled: true, fallbackRulesCount: 2, ... },
+//   errorTracking: { totalRulesWithErrors: 3, totalErrorsRecorded: 15, ... }
+// }
+```
+
+#### getCircuitState()
+
+Get circuit breaker state for a specific rule:
+
+```javascript
+const state = statefulEngine.getCircuitState('rule-1');
+// Returns: 'closed', 'open', or 'half-open'
+```
+
+#### resetCircuit()
+
+Manually reset circuit breaker:
+
+```javascript
+statefulEngine.resetCircuit('rule-1'); // Reset specific rule
+statefulEngine.resetCircuit();         // Reset all circuits
+```
+
+#### getErrorHistory()
+
+Get error history for a specific rule:
+
+```javascript
+const history = statefulEngine.getErrorHistory('rule-1');
+// [{ message: '...', operator: '...', timestamp: ... }, ...]
+```
+
+#### getErrorRate()
+
+Get error rate for a specific rule:
+
+```javascript
+const rate = statefulEngine.getErrorRate('rule-1');
+// {
+//   errorCount: 5,
+//   successCount: 95,
+//   total: 100,
+//   rate: 0.05,
+//   windowStart: timestamp,
+//   windowDuration: 60000
+// }
 ```
 
 ## Best Practices
@@ -259,9 +503,167 @@ const history = statefulEngine.getHistory(ruleId);
   </Card>
 
   <Card title="Limit History" icon="database">
-    Set appropriate `maxHistorySize` to manage memory
+    Set appropriate `maxHistoryPerRule` to manage memory per rule
   </Card>
 </CardGroup>
+
+### Phase 3 Best Practices
+
+<AccordionGroup>
+  <Accordion title="Memory Management (Phase 3.1)">
+    ```javascript
+    const statefulEngine = new StatefulRuleEngine(baseEngine, {
+      // Set TTL for applications with many unique rule IDs
+      stateExpirationMs: 3600000, // 1 hour
+
+      // Run cleanup every 5 minutes
+      cleanupIntervalMs: 300000,
+
+      // Enable deep copy for safety (default)
+      enableDeepCopy: true,
+
+      // Monitor listener counts
+      maxListeners: 50,
+    });
+
+    // Monitor memory in production
+    setInterval(() => {
+      const stats = statefulEngine.getStateStats();
+      if (stats.totalRules > 10000) {
+        console.warn('High rule count:', stats);
+      }
+    }, 60000);
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      await statefulEngine.destroy();
+      process.exit(0);
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Concurrency Control (Phase 3.2)">
+    ```javascript
+    const statefulEngine = new StatefulRuleEngine(baseEngine, {
+      concurrency: {
+        maxConcurrent: 5,  // Limit concurrent evaluations
+        timeout: 5000,     // 5 second timeout
+
+        onTimeout: (ruleId) => {
+          console.error(`Rule ${ruleId} timed out`);
+        },
+
+        onQueueFull: (ruleId, queueSize) => {
+          console.warn(`Queue full for ${ruleId}: ${queueSize}`);
+        },
+      },
+    });
+
+    // Monitor concurrency
+    const stats = statefulEngine.getConcurrencyStats();
+    console.log('Active evaluations:', stats);
+    ```
+  </Accordion>
+
+  <Accordion title="Error Recovery (Phase 3.3)">
+    ```javascript
+    const statefulEngine = new StatefulRuleEngine(baseEngine, {
+      errorRecovery: {
+        retry: {
+          enabled: true,
+          maxAttempts: 3,
+          strategy: 'exponential',
+          initialDelay: 100,
+
+          onRetry: (attempt, error, ruleId) => {
+            console.log(`Retry ${attempt} for ${ruleId}`);
+          },
+        },
+
+        circuitBreaker: {
+          enabled: true,
+          failureThreshold: 5,
+          resetTimeout: 60000,
+
+          onCircuitOpen: (ruleId, info) => {
+            console.error(`Circuit opened for ${ruleId}`, info);
+          },
+        },
+
+        fallback: {
+          enabled: true,
+          defaultValue: { success: false, fallback: true },
+
+          onFallback: (ruleId, type, value) => {
+            console.log(`Fallback used for ${ruleId}: ${type}`);
+          },
+        },
+      },
+    });
+
+    // Register fallbacks
+    statefulEngine.registerFallbackRule('critical-rule', fallbackRule);
+    statefulEngine.registerFallbackValue('backup-rule', { safe: true });
+
+    // Monitor error rates
+    const errorRate = statefulEngine.getErrorRate('critical-rule');
+    if (errorRate && errorRate.rate > 0.1) {
+      console.warn('High error rate:', errorRate);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Production Configuration">
+    ```javascript
+    // Complete production-ready setup
+    const statefulEngine = new StatefulRuleEngine(baseEngine, {
+      // Core options
+      triggerOnEveryChange: false,
+      storeHistory: false, // Disable if not needed
+
+      // Phase 3.1: Memory Management
+      stateExpirationMs: 3600000,
+      cleanupIntervalMs: 300000,
+      enableDeepCopy: true,
+      maxListeners: 100,
+
+      // Phase 3.2: Concurrency
+      concurrency: {
+        maxConcurrent: 10,
+        timeout: 30000,
+        onTimeout: (ruleId) => logger.error(`Timeout: ${ruleId}`),
+      },
+
+      // Phase 3.3: Error Recovery
+      errorRecovery: {
+        retry: {
+          enabled: true,
+          maxAttempts: 3,
+          strategy: 'exponential',
+        },
+        circuitBreaker: {
+          enabled: true,
+          failureThreshold: 5,
+        },
+        fallback: {
+          enabled: true,
+          defaultValue: { success: false, fallback: true },
+        },
+      },
+    });
+
+    // Health check endpoint
+    app.get('/health/rules', (req, res) => {
+      const stats = {
+        state: statefulEngine.getStateStats(),
+        concurrency: statefulEngine.getConcurrencyStats(),
+        errorRecovery: statefulEngine.getErrorRecoveryStats(),
+      };
+      res.json(stats);
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ## Next Steps
 

@@ -35,6 +35,9 @@ const result = engine.evaluateExpr(rule, user);
 - **🧩 Dynamic Field Comparison** - Compare values across different data paths
 - **📈 Stateful Rule Engine** - Track state changes with event-driven architecture
 - **🔄 State Change Operators** - Built-in operators for detecting value changes
+- **💾 State Management** - TTL-based expiration, deep copy protection, listener management
+- **⚙️ Concurrency Control** - Automatic queue management with timeout protection
+- **🔁 Error Recovery** - Retry strategies, circuit breaker, and fallback mechanisms
 - **📝 Type Safe** - Full TypeScript support with comprehensive type definitions
 - **🔧 Extensible** - Easy custom operator registration
 - **📊 Monitoring** - Built-in performance metrics and cache statistics
@@ -376,6 +379,126 @@ const orderData = {
 };
 
 statefulEngine.evaluateBatch(orderRules, orderData);
+```
+
+## 🚀 Phase 3 Production Features
+
+### State Management (Phase 3.1)
+
+Advanced memory management and resource cleanup:
+
+```javascript
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  // State TTL and automatic cleanup
+  stateExpirationMs: 3600000, // 1 hour TTL
+  cleanupIntervalMs: 300000, // Cleanup every 5 minutes
+
+  // Context protection
+  enableDeepCopy: true, // Prevent mutation (handles circular refs)
+
+  // Listener management
+  maxListeners: 100, // Warn on high listener counts
+});
+
+// Monitor memory usage
+const stats = statefulEngine.getStateStats();
+console.log('Memory estimate:', stats.memoryEstimate);
+
+// Manual cleanup
+const result = statefulEngine.cleanupExpiredStates();
+console.log('Removed:', result.removedCount, 'expired states');
+
+// Graceful shutdown
+await statefulEngine.destroy(); // Cleanup timers, listeners, state
+```
+
+### Concurrency Control (Phase 3.2)
+
+Manage concurrent evaluations with automatic queue management:
+
+```javascript
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  concurrency: {
+    maxConcurrent: 10, // Max concurrent evaluations per rule
+    timeout: 30000, // 30 second timeout
+
+    onTimeout: (ruleId) => {
+      console.error(`Rule ${ruleId} timed out`);
+    },
+
+    onQueueFull: (ruleId, queueSize) => {
+      console.warn(`Queue full for ${ruleId}: ${queueSize} pending`);
+    },
+  },
+});
+
+// All evaluation methods are now async
+const result = await statefulEngine.evaluate('rule-1', rule, context);
+
+// Monitor concurrency
+const stats = statefulEngine.getConcurrencyStats();
+console.log('Active evaluations:', stats);
+```
+
+### Error Recovery (Phase 3.3)
+
+Comprehensive error handling with retry, circuit breaker, and fallback strategies:
+
+```javascript
+const statefulEngine = new StatefulRuleEngine(baseEngine, {
+  errorRecovery: {
+    // Retry with exponential backoff
+    retry: {
+      enabled: true,
+      maxAttempts: 3,
+      strategy: 'exponential', // 'exponential', 'fixed', 'linear'
+      initialDelay: 100,
+      maxDelay: 5000,
+
+      onRetry: (attempt, error, ruleId) => {
+        console.log(`Retry ${attempt}/${3} for ${ruleId}`);
+      },
+    },
+
+    // Circuit breaker pattern
+    circuitBreaker: {
+      enabled: true,
+      failureThreshold: 5, // Open after 5 failures
+      resetTimeout: 60000, // Try again after 1 minute
+
+      onCircuitOpen: (ruleId, info) => {
+        console.error(`Circuit opened for ${ruleId}`, info);
+      },
+    },
+
+    // Fallback strategies
+    fallback: {
+      enabled: true,
+      defaultValue: { success: false, fallback: true },
+
+      onFallback: (ruleId, type, value) => {
+        console.log(`Using ${type} fallback for ${ruleId}`);
+      },
+    },
+  },
+});
+
+// Register fallback rules
+statefulEngine.registerFallbackRule('primary-rule', fallbackRule);
+statefulEngine.registerFallbackValue('backup-rule', { safe: true });
+
+// Monitor error rates
+const errorRate = statefulEngine.getErrorRate('rule-1');
+if (errorRate && errorRate.rate > 0.1) {
+  console.warn('High error rate:', errorRate);
+}
+
+// Check circuit state
+const state = statefulEngine.getCircuitState('rule-1');
+// Returns: 'closed', 'open', or 'half-open'
+
+// Manual circuit reset
+statefulEngine.resetCircuit('rule-1');
 ```
 
 ## ⚡ Performance Features
