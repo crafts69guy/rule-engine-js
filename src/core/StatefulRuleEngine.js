@@ -1,5 +1,10 @@
 import { StateChangeOperators } from '../operators/state.js';
 import { GlobalHistoryManager, PerRuleHistoryManager } from './history/index.js';
+import {
+  ParallelConcurrencyManager,
+  SequentialConcurrencyManager,
+  PerRuleConcurrencyManager,
+} from './concurrency/index.js';
 
 /**
  * ============================================================================
@@ -19,8 +24,10 @@ export class StatefulRuleEngine {
       cleanupIntervalMs: options.cleanupIntervalMs || 60000, // 1 minute default
       enableDeepCopy: options.enableDeepCopy !== false, // true by default
       maxListeners: options.maxListeners || 100, // Warn at 100 listeners per event
-      // Phase 3: Persistence hooks
+      // Phase 3.1: Persistence hooks
       persistence: options.persistence || null,
+      // Phase 3.2: Concurrency control
+      concurrency: options.concurrency || null,
       ...options,
     };
 
@@ -50,7 +57,7 @@ export class StatefulRuleEngine {
       this.startCleanupTimer();
     }
 
-    // Phase 3: Persistence setup
+    // Phase 3.1: Persistence setup
     this.persistenceTimer = null;
     this.pendingSaves = new Set(); // Track rules pending save
     if (this.options.persistence?.enabled) {
@@ -60,12 +67,58 @@ export class StatefulRuleEngine {
       }
     }
 
+    // Phase 3.2: Concurrency control setup
+    this.concurrencyManager = this.createConcurrencyManager();
+
     // Register state change operators
     const stateOps = new StateChangeOperators(
       this.engine._internal.pathResolver,
       this.engine._internal.engine.config
     );
     stateOps.register(this.engine._internal.engine);
+  }
+
+  /**
+   * Create concurrency manager based on configuration
+   */
+  createConcurrencyManager() {
+    const concurrency = this.options.concurrency;
+
+    if (!concurrency) {
+      // Default: parallel execution (no concurrency control)
+      return new ParallelConcurrencyManager();
+    }
+
+    // Support both string shorthand and object configuration
+    let mode = 'parallel';
+    let options = {};
+
+    if (typeof concurrency === 'string') {
+      // Shorthand: concurrency: 'sequential'
+      mode = concurrency;
+    } else if (typeof concurrency === 'object') {
+      // Full configuration object
+      mode = concurrency.mode || 'parallel';
+      options = {
+        maxQueueSize: concurrency.maxQueueSize,
+        evaluationTimeout: concurrency.evaluationTimeout,
+        onQueueFull: concurrency.onQueueFull,
+        onTimeout: concurrency.onTimeout,
+      };
+    }
+
+    switch (mode) {
+      case 'sequential':
+        return new SequentialConcurrencyManager(options);
+      case 'per-rule':
+        return new PerRuleConcurrencyManager(options);
+      case 'parallel':
+        return new ParallelConcurrencyManager(options);
+      default:
+        throw new Error(
+          `Invalid concurrency mode: ${mode}. Must be 'parallel', 'sequential', or 'per-rule'`
+        );
+    }
   }
 
   /**
@@ -117,9 +170,24 @@ export class StatefulRuleEngine {
   }
 
   /**
-   * Evaluate rule with state tracking
+   * Evaluate rule with state tracking (async)
+   * @param {string} ruleId - Rule identifier
+   * @param {Object} rule - Rule definition
+   * @param {Object} context - Evaluation context
+   * @param {Object} options - Evaluation options
+   * @returns {Promise<Object>} - Evaluation result
    */
-  evaluate(ruleId, rule, context, options = {}) {
+  async evaluate(ruleId, rule, context, options = {}) {
+    // Phase 3.2: Use concurrency manager for proper queueing and timeout handling
+    return await this.concurrencyManager.execute(ruleId, async () => {
+      return this._evaluateInternal(ruleId, rule, context, options);
+    });
+  }
+
+  /**
+   * Internal evaluation logic (without concurrency control)
+   */
+  _evaluateInternal(ruleId, rule, context, options = {}) {
     // Update timestamp for this rule (for TTL tracking)
     this.stateTimestamps.set(ruleId, Date.now());
 
@@ -486,10 +554,22 @@ export class StatefulRuleEngine {
   }
 
   /**
+   * Get concurrency statistics (Phase 3.2)
+   */
+  getConcurrencyStats() {
+    return this.concurrencyManager.getStats();
+  }
+
+  /**
    * Destroy the engine and cleanup resources
    */
   async destroy() {
-    // Phase 3: Flush any pending saves before destroying
+    // Phase 3.2: Clear concurrency queues
+    if (this.concurrencyManager) {
+      this.concurrencyManager.clear();
+    }
+
+    // Phase 3.1: Flush any pending saves before destroying
     if (this.options.persistence?.enabled) {
       await this.flushPendingSaves();
       this.stopPersistenceTimer();
@@ -542,9 +622,10 @@ export class StatefulRuleEngine {
   }
 
   /**
-   * Batch evaluate multiple rules with enhanced error handling
+   * Batch evaluate multiple rules with enhanced error handling (async)
+   * @returns {Promise<Object>} - Batch evaluation results
    */
-  evaluateBatch(rules, context, options = {}) {
+  async evaluateBatch(rules, context, options = {}) {
     const batchOptions = {
       stopOnError: options.stopOnError || false, // Continue on error by default
       collectErrors: options.collectErrors !== false, // Collect errors by default
@@ -558,7 +639,7 @@ export class StatefulRuleEngine {
 
     for (const [ruleId, rule] of Object.entries(rules)) {
       try {
-        const result = this.evaluate(ruleId, rule, context, batchOptions);
+        const result = await this.evaluate(ruleId, rule, context, batchOptions);
         results[ruleId] = result;
 
         // Check if the result contains an error (engine returns error info in result)

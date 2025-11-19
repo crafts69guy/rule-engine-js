@@ -24,7 +24,7 @@ describe('Phase 3: State Persistence Hooks', () => {
   });
 
   describe('Persistence Configuration', () => {
-    it('should validate persistence configuration on construction', () => {
+    it('should validate persistence configuration on construction', async () => {
       expect(() => {
         new StatefulRuleEngine(baseEngine, {
           persistence: {
@@ -36,7 +36,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       }).toThrow('persistence.onStateSave is required when autoSaveInterval is enabled');
     });
 
-    it('should validate onStateSave is a function', () => {
+    it('should validate onStateSave is a function', async () => {
       expect(() => {
         new StatefulRuleEngine(baseEngine, {
           persistence: {
@@ -47,7 +47,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       }).toThrow('persistence.onStateSave must be a function');
     });
 
-    it('should validate onStateLoad is a function', () => {
+    it('should validate onStateLoad is a function', async () => {
       expect(() => {
         new StatefulRuleEngine(baseEngine, {
           persistence: {
@@ -58,7 +58,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       }).toThrow('persistence.onStateLoad must be a function');
     });
 
-    it('should validate onHistorySave is a function', () => {
+    it('should validate onHistorySave is a function', async () => {
       expect(() => {
         new StatefulRuleEngine(baseEngine, {
           persistence: {
@@ -69,7 +69,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       }).toThrow('persistence.onHistorySave must be a function');
     });
 
-    it('should validate autoSaveInterval is a number', () => {
+    it('should validate autoSaveInterval is a number', async () => {
       expect(() => {
         new StatefulRuleEngine(baseEngine, {
           persistence: {
@@ -81,7 +81,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       }).toThrow('persistence.autoSaveInterval must be a number');
     });
 
-    it('should allow persistence without autoSaveInterval', () => {
+    it('should allow persistence without autoSaveInterval', async () => {
       expect(() => {
         new StatefulRuleEngine(baseEngine, {
           persistence: {
@@ -110,7 +110,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       const rule = { eq: ['status', 'active'] };
       const context = { status: 'active' };
 
-      statefulEngine.evaluate('test-rule', rule, context);
+      await statefulEngine.evaluate('test-rule', rule, context);
 
       await statefulEngine.saveState('test-rule');
 
@@ -171,7 +171,7 @@ describe('Phase 3: State Persistence Hooks', () => {
   });
 
   describe('Auto-Save Functionality', () => {
-    it('should start persistence timer when autoSaveInterval is configured', () => {
+    it('should start persistence timer when autoSaveInterval is configured', async () => {
       const statefulEngine = new StatefulRuleEngine(baseEngine, {
         persistence: {
           enabled: true,
@@ -184,7 +184,7 @@ describe('Phase 3: State Persistence Hooks', () => {
       statefulEngine.stopPersistenceTimer();
     });
 
-    it('should not start persistence timer when autoSaveInterval is not configured', () => {
+    it('should not start persistence timer when autoSaveInterval is not configured', async () => {
       const statefulEngine = new StatefulRuleEngine(baseEngine, {
         persistence: {
           enabled: true,
@@ -209,8 +209,8 @@ describe('Phase 3: State Persistence Hooks', () => {
       const rule = { eq: ['value', 'test'] };
 
       // Evaluate multiple rules
-      statefulEngine.evaluate('rule1', rule, { value: 'test' });
-      statefulEngine.evaluate('rule2', rule, { value: 'test' });
+      await statefulEngine.evaluate('rule1', rule, { value: 'test' });
+      await statefulEngine.evaluate('rule2', rule, { value: 'test' });
 
       expect(statefulEngine.pendingSaves.size).toBe(2);
 
@@ -244,7 +244,7 @@ describe('Phase 3: State Persistence Hooks', () => {
         },
       });
 
-      statefulEngine.evaluate('test-rule', { eq: ['value', 'test'] }, { value: 'test' });
+      await statefulEngine.evaluate('test-rule', { eq: ['value', 'test'] }, { value: 'test' });
 
       // First flush - should fail and re-add to pending
       await statefulEngine.flushPendingSaves();
@@ -272,8 +272,8 @@ describe('Phase 3: State Persistence Hooks', () => {
 
       const rule = { changed: ['status'] };
 
-      statefulEngine.evaluate('test-rule', rule, { status: 'pending' });
-      statefulEngine.evaluate('test-rule', rule, { status: 'active' });
+      await statefulEngine.evaluate('test-rule', rule, { status: 'pending' });
+      await statefulEngine.evaluate('test-rule', rule, { status: 'active' });
 
       // Wait for async history save to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -296,9 +296,9 @@ describe('Phase 3: State Persistence Hooks', () => {
       });
 
       // Should not throw
-      expect(() => {
-        statefulEngine.evaluate('test-rule', { eq: ['value', 'test'] }, { value: 'test' });
-      }).not.toThrow();
+      await expect(
+        statefulEngine.evaluate('test-rule', { eq: ['value', 'test'] }, { value: 'test' })
+      ).resolves.toBeDefined();
 
       // Wait for async operation
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -319,12 +319,12 @@ describe('Phase 3: State Persistence Hooks', () => {
       });
     });
 
-    it('should serialize complete engine state', () => {
+    it('should serialize complete engine state', async () => {
       const rule = { changed: ['value'] };
 
-      statefulEngine.evaluate('rule1', rule, { value: 1 });
-      statefulEngine.evaluate('rule2', rule, { value: 'a' });
-      statefulEngine.evaluate('rule1', rule, { value: 2 });
+      await statefulEngine.evaluate('rule1', rule, { value: 1 });
+      await statefulEngine.evaluate('rule2', rule, { value: 'a' });
+      await statefulEngine.evaluate('rule1', rule, { value: 2 });
 
       const serialized = statefulEngine.serialize();
 
@@ -338,11 +338,11 @@ describe('Phase 3: State Persistence Hooks', () => {
       expect(serialized.metadata.ruleCount).toBe(2);
     });
 
-    it('should include all state components in serialization', () => {
+    it('should include all state components in serialization', async () => {
       const rule = { eq: ['status', 'active'] };
       const context = { status: 'active', id: 123 };
 
-      statefulEngine.evaluate('test-rule', rule, context);
+      await statefulEngine.evaluate('test-rule', rule, context);
 
       const serialized = statefulEngine.serialize();
 
@@ -357,8 +357,8 @@ describe('Phase 3: State Persistence Hooks', () => {
       const rule = { changed: ['value'] };
 
       // Create some state
-      statefulEngine.evaluate('rule1', rule, { value: 1 });
-      statefulEngine.evaluate('rule1', rule, { value: 2 });
+      await statefulEngine.evaluate('rule1', rule, { value: 1 });
+      await statefulEngine.evaluate('rule1', rule, { value: 2 });
 
       // Serialize
       const serialized = statefulEngine.serialize();
@@ -380,7 +380,7 @@ describe('Phase 3: State Persistence Hooks', () => {
     });
 
     it('should clear existing state before hydration', async () => {
-      statefulEngine.evaluate('old-rule', { eq: ['value', 'test'] }, { value: 'test' });
+      await statefulEngine.evaluate('old-rule', { eq: ['value', 'test'] }, { value: 'test' });
 
       const serialized = {
         states: {
@@ -424,7 +424,7 @@ describe('Phase 3: State Persistence Hooks', () => {
   });
 
   describe('Integration with Evaluation', () => {
-    it('should mark rules for save after evaluation', () => {
+    it('should mark rules for save after evaluation', async () => {
       const statefulEngine = new StatefulRuleEngine(baseEngine, {
         persistence: {
           enabled: true,
@@ -434,19 +434,19 @@ describe('Phase 3: State Persistence Hooks', () => {
 
       const rule = { eq: ['value', 'test'] };
 
-      statefulEngine.evaluate('test-rule', rule, { value: 'test' });
+      await statefulEngine.evaluate('test-rule', rule, { value: 'test' });
 
       expect(statefulEngine.pendingSaves.has('test-rule')).toBe(true);
     });
 
-    it('should not mark for save when persistence is disabled', () => {
+    it('should not mark for save when persistence is disabled', async () => {
       const statefulEngine = new StatefulRuleEngine(baseEngine, {
         persistence: { enabled: false },
       });
 
       const rule = { eq: ['value', 'test'] };
 
-      statefulEngine.evaluate('test-rule', rule, { value: 'test' });
+      await statefulEngine.evaluate('test-rule', rule, { value: 'test' });
 
       expect(statefulEngine.pendingSaves.size).toBe(0);
     });
@@ -461,7 +461,7 @@ describe('Phase 3: State Persistence Hooks', () => {
         },
       });
 
-      statefulEngine.evaluate('test-rule', { eq: ['value', 'test'] }, { value: 'test' });
+      await statefulEngine.evaluate('test-rule', { eq: ['value', 'test'] }, { value: 'test' });
 
       expect(statefulEngine.pendingSaves.size).toBe(1);
 
@@ -513,7 +513,11 @@ describe('Phase 3: State Persistence Hooks', () => {
       });
 
       // Evaluate and save
-      statefulEngine.evaluate('user-rule', { eq: ['status', 'active'] }, { status: 'active' });
+      await statefulEngine.evaluate(
+        'user-rule',
+        { eq: ['status', 'active'] },
+        { status: 'active' }
+      );
       await statefulEngine.saveState('user-rule');
 
       expect(fileStorage.data['state:user-rule']).toBeDefined();
@@ -561,8 +565,8 @@ describe('Phase 3: State Persistence Hooks', () => {
         },
       });
 
-      statefulEngine.evaluate('db-rule', { changed: ['value'] }, { value: 1 });
-      statefulEngine.evaluate('db-rule', { changed: ['value'] }, { value: 2 });
+      await statefulEngine.evaluate('db-rule', { changed: ['value'] }, { value: 1 });
+      await statefulEngine.evaluate('db-rule', { changed: ['value'] }, { value: 2 });
 
       await statefulEngine.saveState('db-rule');
 
