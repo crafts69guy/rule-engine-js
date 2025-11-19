@@ -5,6 +5,7 @@ import {
   SequentialConcurrencyManager,
   PerRuleConcurrencyManager,
 } from './concurrency/index.js';
+import { ErrorRecoveryManager } from './recovery/index.js';
 
 /**
  * ============================================================================
@@ -28,6 +29,8 @@ export class StatefulRuleEngine {
       persistence: options.persistence || null,
       // Phase 3.2: Concurrency control
       concurrency: options.concurrency || null,
+      // Phase 3.3: Error recovery
+      errorRecovery: options.errorRecovery || null,
       ...options,
     };
 
@@ -69,6 +72,9 @@ export class StatefulRuleEngine {
 
     // Phase 3.2: Concurrency control setup
     this.concurrencyManager = this.createConcurrencyManager();
+
+    // Phase 3.3: Error recovery setup
+    this.errorRecoveryManager = this.createErrorRecoveryManager();
 
     // Register state change operators
     const stateOps = new StateChangeOperators(
@@ -119,6 +125,20 @@ export class StatefulRuleEngine {
           `Invalid concurrency mode: ${mode}. Must be 'parallel', 'sequential', or 'per-rule'`
         );
     }
+  }
+
+  /**
+   * Create error recovery manager based on configuration
+   */
+  createErrorRecoveryManager() {
+    const errorRecovery = this.options.errorRecovery;
+
+    if (!errorRecovery) {
+      // Default: disabled error recovery
+      return new ErrorRecoveryManager({ enabled: false });
+    }
+
+    return new ErrorRecoveryManager(errorRecovery);
   }
 
   /**
@@ -178,10 +198,22 @@ export class StatefulRuleEngine {
    * @returns {Promise<Object>} - Evaluation result
    */
   async evaluate(ruleId, rule, context, options = {}) {
-    // Phase 3.2: Use concurrency manager for proper queueing and timeout handling
-    return await this.concurrencyManager.execute(ruleId, async () => {
-      return this._evaluateInternal(ruleId, rule, context, options);
-    });
+    // Phase 3.3: Wrap with error recovery (retry, circuit breaker, fallback)
+    return await this.errorRecoveryManager.execute(
+      ruleId,
+      async () => {
+        // Phase 3.2: Use concurrency manager for proper queueing and timeout handling
+        return await this.concurrencyManager.execute(ruleId, async () => {
+          return this._evaluateInternal(ruleId, rule, context, options);
+        });
+      },
+      // Fallback function - if primary rule fails, try fallback rule
+      async (fallbackRule) => {
+        return await this.concurrencyManager.execute(ruleId, async () => {
+          return this._evaluateInternal(ruleId, fallbackRule, context, options);
+        });
+      }
+    );
   }
 
   /**
@@ -564,6 +596,11 @@ export class StatefulRuleEngine {
    * Destroy the engine and cleanup resources
    */
   async destroy() {
+    // Phase 3.3: Cleanup error recovery resources
+    if (this.errorRecoveryManager) {
+      this.errorRecoveryManager.destroy();
+    }
+
     // Phase 3.2: Clear concurrency queues
     if (this.concurrencyManager) {
       this.concurrencyManager.clear();
@@ -943,5 +980,70 @@ export class StatefulRuleEngine {
     } catch (error) {
       console.error('Failed to save history entry:', error);
     }
+  }
+
+  /**
+   * Phase 3.3: Error Recovery Helper Methods
+   */
+
+  /**
+   * Register a fallback rule for a specific rule
+   * @param {string} ruleId
+   * @param {Object} fallbackRule
+   */
+  registerFallbackRule(ruleId, fallbackRule) {
+    this.errorRecoveryManager.registerFallbackRule(ruleId, fallbackRule);
+  }
+
+  /**
+   * Register a fallback value for a specific rule
+   * @param {string} ruleId
+   * @param {any} value
+   */
+  registerFallbackValue(ruleId, value) {
+    this.errorRecoveryManager.registerFallbackValue(ruleId, value);
+  }
+
+  /**
+   * Get error recovery statistics
+   * @returns {Object}
+   */
+  getErrorRecoveryStats() {
+    return this.errorRecoveryManager.getStats();
+  }
+
+  /**
+   * Get circuit breaker state for a rule
+   * @param {string} ruleId
+   * @returns {string}
+   */
+  getCircuitState(ruleId) {
+    return this.errorRecoveryManager.getCircuitState(ruleId);
+  }
+
+  /**
+   * Reset circuit breaker for a rule
+   * @param {string} ruleId - Optional specific rule
+   */
+  resetCircuit(ruleId) {
+    this.errorRecoveryManager.resetCircuit(ruleId);
+  }
+
+  /**
+   * Get error history for a rule
+   * @param {string} ruleId
+   * @returns {Array}
+   */
+  getErrorHistory(ruleId) {
+    return this.errorRecoveryManager.getErrorHistory(ruleId);
+  }
+
+  /**
+   * Get error rate for a rule
+   * @param {string} ruleId
+   * @returns {Object|null}
+   */
+  getErrorRate(ruleId) {
+    return this.errorRecoveryManager.getErrorRate(ruleId);
   }
 }
