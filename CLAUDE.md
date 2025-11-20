@@ -196,10 +196,10 @@ The project uses TypeScript declaration files for type safety while maintaining 
 
 ### Multiple Output Formats
 
-- **UMD** (`dist/index.js`) - Browser-compatible, includes all dependencies
-- **UMD Minified** (`dist/index.min.js`) - Production optimized
-- **ESM** (`dist/index.esm.js`) - Tree-shakeable ES modules
-- **CommonJS** (`dist/index.cjs`) - Node.js compatibility
+- **UMD** (`dist/index.js`) - Browser-compatible, includes all dependencies (~126KB)
+- **UMD Minified** (`dist/index.min.js`) - Production optimized (~46KB, 11.4KB gzipped)
+- **ESM** (`dist/index.esm.js`) - Tree-shakeable ES modules, minified (~45KB, 11.3KB gzipped)
+- **CommonJS** (`dist/index.cjs`) - Node.js compatibility, minified (~46KB, 11.3KB gzipped)
 
 ### Build Tools
 

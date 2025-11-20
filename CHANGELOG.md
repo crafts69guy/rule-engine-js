@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **📦 Bundle Size Optimization**: Reduced ESM and CommonJS bundle sizes by 62%
+  - ESM bundle: 117.9KB → 45.4KB (11.3KB gzipped)
+  - CommonJS bundle: 118.2KB → 45.5KB (11.3KB gzipped)
+  - Enabled Terser minification for ESM/CJS builds
+  - Updated size limits to 50KB for all production bundles
+
 ### Added
 
 - **🔄 Stateful Rule Engine**: New `StatefulRuleEngine` class for state tracking and event-driven rule evaluation

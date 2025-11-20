@@ -119,10 +119,12 @@ export default [
   // ESM build - external dependencies, optimized for tree shaking
   createConfig('es', 'dist/index.esm.js', {
     external: createExternal('esm'),
+    minify: true, // Enable minification for smaller bundle
   }),
 
   // CommonJS build - external dependencies
   createConfig('cjs', 'dist/index.cjs', {
     external: createExternal('cjs'),
+    minify: true, // Enable minification for smaller bundle
   }),
 ];
