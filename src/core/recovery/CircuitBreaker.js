@@ -224,7 +224,9 @@ export class CircuitBreaker {
     };
 
     for (const [ruleId, circuit] of this.circuits.entries()) {
-      stats.circuitStates[circuit.state]++;
+      // Map 'half-open' state to 'halfOpen' key for consistency
+      const stateKey = circuit.state === CircuitState.HALF_OPEN ? 'halfOpen' : circuit.state;
+      stats.circuitStates[stateKey]++;
       stats.circuits[ruleId] = {
         state: circuit.state,
         failureCount: circuit.failureCount,

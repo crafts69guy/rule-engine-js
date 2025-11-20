@@ -634,10 +634,7 @@ describe('CircuitBreaker', () => {
       expect(stats.totalCircuits).toBe(3);
       expect(stats.circuitStates.closed).toBe(1);
       expect(stats.circuitStates.open).toBe(1);
-      // Bug: The implementation has a mismatch between initialization (halfOpen) and state ('half-open')
-      // This causes the counter to be NaN when incremented
-      expect(Number.isNaN(stats.circuitStates['half-open'])).toBe(true);
-      expect(stats.circuitStates.halfOpen).toBe(0); // Never incremented due to key mismatch
+      expect(stats.circuitStates.halfOpen).toBe(1);
     });
 
     it('should include circuit details', () => {
@@ -680,9 +677,7 @@ describe('CircuitBreaker', () => {
       expect(stats.totalCircuits).toBe(6);
       expect(stats.circuitStates.closed).toBe(2);
       expect(stats.circuitStates.open).toBe(3);
-      // Bug: The implementation has a mismatch between initialization (halfOpen) and state ('half-open')
-      expect(Number.isNaN(stats.circuitStates['half-open'])).toBe(true);
-      expect(stats.circuitStates.halfOpen).toBe(0); // Never incremented due to key mismatch
+      expect(stats.circuitStates.halfOpen).toBe(1);
     });
   });
 
