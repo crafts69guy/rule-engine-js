@@ -19,16 +19,16 @@ describe('Stateful Features Integration', () => {
         ],
       };
 
-      it('should track order lifecycle events', () => {
+      it('should track order lifecycle events', async () => {
         const order1 = { order: { id: '12345', status: 'pending', total: 99.99 } };
         const order2 = { order: { id: '12345', status: 'processing', total: 99.99 } };
         const order3 = { order: { id: '12345', status: 'shipped', total: 99.99 } };
         const order4 = { order: { id: '12345', status: 'delivered', total: 99.99 } };
 
-        const r1 = statefulEngine.evaluate('order-notifications', orderStatusRule, order1);
-        const r2 = statefulEngine.evaluate('order-notifications', orderStatusRule, order2);
-        const r3 = statefulEngine.evaluate('order-notifications', orderStatusRule, order3);
-        const r4 = statefulEngine.evaluate('order-notifications', orderStatusRule, order4);
+        const r1 = await statefulEngine.evaluate('order-notifications', orderStatusRule, order1);
+        const r2 = await statefulEngine.evaluate('order-notifications', orderStatusRule, order2);
+        const r3 = await statefulEngine.evaluate('order-notifications', orderStatusRule, order3);
+        const r4 = await statefulEngine.evaluate('order-notifications', orderStatusRule, order4);
 
         expect(r1.triggered).toBe(false); // Initial state
         expect(r2.triggered).toBe(false); // Processing - not a tracked status
@@ -36,12 +36,16 @@ describe('Stateful Features Integration', () => {
         expect(r4.triggered).toBe(false); // Delivered - already triggered, standard behavior
       });
 
-      it('should handle order cancellations', () => {
+      it('should handle order cancellations', async () => {
         const order1 = { order: { id: '12345', status: 'pending' } };
         const order2 = { order: { id: '12345', status: 'cancelled' } };
 
-        statefulEngine.evaluate('order-notifications', orderStatusRule, order1);
-        const result = statefulEngine.evaluate('order-notifications', orderStatusRule, order2);
+        await statefulEngine.evaluate('order-notifications', orderStatusRule, order1);
+        const result = await statefulEngine.evaluate(
+          'order-notifications',
+          orderStatusRule,
+          order2
+        );
 
         expect(result.triggered).toBe(true);
         expect(result.stateChange).toBe('triggered');
@@ -55,7 +59,7 @@ describe('Stateful Features Integration', () => {
         cooling: { and: [{ lt: ['temperature', 60] }, { decreased: ['temperature'] }] },
       };
 
-      it('should monitor temperature fluctuations', () => {
+      it('should monitor temperature fluctuations', async () => {
         const readings = [
           { temperature: 70, timestamp: '2023-01-01T10:00:00Z' },
           { temperature: 72, timestamp: '2023-01-01T10:05:00Z' }, // Small increase
@@ -64,21 +68,24 @@ describe('Stateful Features Integration', () => {
           { temperature: 55, timestamp: '2023-01-01T10:20:00Z' }, // Rapid cooling
         ];
 
-        const results = readings.map((reading) =>
-          statefulEngine.evaluateBatch(tempRules, reading, { triggerOnEveryChange: true })
+        const results = await Promise.all(
+          readings.map(
+            async (reading) =>
+              await statefulEngine.evaluateBatch(tempRules, reading, { triggerOnEveryChange: true })
+          )
         );
 
         // Check significant temperature changes
-        expect(results[0].significantChange.triggered).toBe(false); // Initial
-        expect(results[1].significantChange.triggered).toBe(false); // Only 2° change
-        expect(results[2].significantChange.triggered).toBe(true); // 6° change from 72
-        expect(results[4].significantChange.triggered).toBe(true); // 30° drop
+        expect(results[0].results.significantChange.triggered).toBe(false); // Initial
+        expect(results[1].results.significantChange.triggered).toBe(false); // Only 2° change
+        expect(results[2].results.significantChange.triggered).toBe(true); // 6° change from 72
+        expect(results[4].results.significantChange.triggered).toBe(true); // 30° drop
 
         // Check overheating detection
-        expect(results[3].overheating.triggered).toBe(true); // Above 80° and increased - first trigger
+        expect(results[3].results.overheating.triggered).toBe(true); // Above 80° and increased - first trigger
 
         // Check cooling detection
-        expect(results[4].cooling.triggered).toBe(true); // Below 60° and decreasing
+        expect(results[4].results.cooling.triggered).toBe(true); // Below 60° and decreasing
       });
     });
 
@@ -94,7 +101,7 @@ describe('Stateful Features Integration', () => {
         },
       };
 
-      it('should track user behavior patterns', () => {
+      it('should track user behavior patterns', async () => {
         const activities = [
           { user: { id: 'user123', loginStreak: 5, role: 'user', failedLoginAttempts: 0 } },
           { user: { id: 'user123', loginStreak: 0, role: 'user', failedLoginAttempts: 1 } }, // Streak broken
@@ -102,18 +109,20 @@ describe('Stateful Features Integration', () => {
           { user: { id: 'user123', loginStreak: 0, role: 'admin', failedLoginAttempts: 4 } }, // Failed attempts
         ];
 
-        const results = activities.map((activity) =>
-          statefulEngine.evaluateBatch(userRules, activity)
+        const results = await Promise.all(
+          activities.map(
+            async (activity) => await statefulEngine.evaluateBatch(userRules, activity)
+          )
         );
 
-        expect(results[1].loginStreakBroken.triggered).toBe(true); // Streak broken
-        expect(results[2].privilegeEscalation.triggered).toBe(true); // Became admin
-        expect(results[3].suspiciousActivity.triggered).toBe(true); // Failed attempts increased above threshold
+        expect(results[1].results.loginStreakBroken.triggered).toBe(true); // Streak broken
+        expect(results[2].results.privilegeEscalation.triggered).toBe(true); // Became admin
+        expect(results[3].results.suspiciousActivity.triggered).toBe(true); // Failed attempts increased above threshold
       });
     });
 
     describe('Financial Trading Alerts', () => {
-      it('should detect significant price movements', () => {
+      it('should detect significant price movements', async () => {
         const priceAlert = {
           or: [
             { changedBy: ['stock.price', 10] }, // $10 change
@@ -128,8 +137,10 @@ describe('Stateful Features Integration', () => {
           { stock: { symbol: 'AAPL', price: 164.0, volume: 800000 } }, // Small change, low volume
         ];
 
-        const results = marketData.map((data) =>
-          statefulEngine.evaluate('price-alert', priceAlert, data)
+        const results = await Promise.all(
+          marketData.map(
+            async (data) => await statefulEngine.evaluate('price-alert', priceAlert, data)
+          )
         );
 
         expect(results[0].triggered).toBe(false); // Initial
@@ -141,7 +152,7 @@ describe('Stateful Features Integration', () => {
   });
 
   describe('Complex State Transitions', () => {
-    it('should handle multi-step workflow states', () => {
+    it('should handle multi-step workflow states', async () => {
       const workflowRule = {
         and: [
           { changedFrom: ['workflow.status', 'review'] },
@@ -157,17 +168,17 @@ describe('Stateful Features Integration', () => {
       ];
 
       let finalResult;
-      workflows.forEach((wf, i) => {
-        const result = statefulEngine.evaluate('workflow', workflowRule, wf);
+      for (let i = 0; i < workflows.length; i++) {
+        const result = await statefulEngine.evaluate('workflow', workflowRule, workflows[i]);
         if (i === 2) {
           finalResult = result;
         }
-      });
+      }
 
       expect(finalResult.triggered).toBe(true);
     });
 
-    it('should track cascading state changes', () => {
+    it('should track cascading state changes', async () => {
       const parentRule = { changed: ['parent.status'] };
       const childRule = {
         and: [
@@ -178,13 +189,13 @@ describe('Stateful Features Integration', () => {
 
       // Parent becomes active
       const state1 = { parent: { status: 'active' }, child: { status: 'pending' } };
-      statefulEngine.evaluate('parent', parentRule, state1);
-      statefulEngine.evaluate('child', childRule, state1);
+      await statefulEngine.evaluate('parent', parentRule, state1);
+      await statefulEngine.evaluate('child', childRule, state1);
 
       // Child changes while parent is active
       const state2 = { parent: { status: 'active' }, child: { status: 'processing' } };
-      const parentResult = statefulEngine.evaluate('parent', parentRule, state2);
-      const childResult = statefulEngine.evaluate('child', childRule, state2);
+      const parentResult = await statefulEngine.evaluate('parent', parentRule, state2);
+      const childResult = await statefulEngine.evaluate('child', childRule, state2);
 
       expect(parentResult.triggered).toBe(false); // Parent didn't change
       expect(childResult.triggered).toBe(true); // Child changed and parent is active
@@ -192,7 +203,7 @@ describe('Stateful Features Integration', () => {
   });
 
   describe('Event-driven Architecture', () => {
-    it('should support event sourcing patterns', () => {
+    it('should support event sourcing patterns', async () => {
       const eventEngine = new StatefulRuleEngine(baseEngine, {
         storeHistory: true,
         maxHistorySize: 10,
@@ -225,7 +236,7 @@ describe('Stateful Features Integration', () => {
       expect(events[1].context.account.balance).toBe(2000);
     });
 
-    it('should handle multiple concurrent rule evaluations', () => {
+    it('should handle multiple concurrent rule evaluations', async () => {
       const rules = {
         userStatusChange: { changed: ['user.status'] },
         userScoreIncrease: { increased: ['user.score'] },
@@ -238,33 +249,33 @@ describe('Stateful Features Integration', () => {
       ];
 
       // First evaluation - establish baseline
-      statefulEngine.evaluateBatch(rules, userData[0]);
+      await statefulEngine.evaluateBatch(rules, userData[0]);
 
       // Second evaluation - everything changed
-      const results = statefulEngine.evaluateBatch(rules, userData[1]);
+      const results = await statefulEngine.evaluateBatch(rules, userData[1]);
 
-      expect(results.userStatusChange.triggered).toBe(true);
-      expect(results.userScoreIncrease.triggered).toBe(true);
-      expect(results.userRoleChange.triggered).toBe(true);
+      expect(results.results.userStatusChange.triggered).toBe(true);
+      expect(results.results.userScoreIncrease.triggered).toBe(true);
+      expect(results.results.userRoleChange.triggered).toBe(true);
     });
   });
 
   describe('Performance and Scalability', () => {
-    it('should handle high-frequency evaluations efficiently', () => {
+    it('should handle high-frequency evaluations efficiently', async () => {
       const rule = { changed: ['sensor.value'] };
       const startTime = Date.now();
 
       // Simulate 1000 sensor readings
       for (let i = 0; i < 1000; i++) {
         const context = { sensor: { id: 'SENSOR001', value: Math.random() * 100 } };
-        statefulEngine.evaluate(`reading-${i}`, rule, context);
+        await statefulEngine.evaluate(`reading-${i}`, rule, context);
       }
 
       const duration = Date.now() - startTime;
       expect(duration).toBeLessThan(1000); // Should complete in under 1 second
     });
 
-    it('should manage memory usage with large state history', () => {
+    it('should manage memory usage with large state history', async () => {
       const historyEngine = new StatefulRuleEngine(baseEngine, {
         storeHistory: true,
         maxHistorySize: 5,
@@ -278,14 +289,15 @@ describe('Stateful Features Integration', () => {
       }
 
       // Should only keep the most recent 5
-      expect(historyEngine.history).toHaveLength(5);
-      expect(historyEngine.history[0].context.value).toBe(5);
-      expect(historyEngine.history[4].context.value).toBe(9);
+      const history = historyEngine.getAllHistory();
+      expect(history).toHaveLength(5);
+      expect(history[0].context.value).toBe(5);
+      expect(history[4].context.value).toBe(9);
     });
   });
 
   describe('Error Handling and Edge Cases', () => {
-    it('should handle malformed contexts gracefully', () => {
+    it('should handle malformed contexts gracefully', async () => {
       const rule = { changed: ['user.status'] };
 
       const contexts = [
@@ -298,55 +310,53 @@ describe('Stateful Features Integration', () => {
         { user: { status: undefined } },
       ];
 
-      contexts.forEach((context, i) => {
-        expect(() => {
-          statefulEngine.evaluate(`test-${i}`, rule, context);
-        }).not.toThrow();
-      });
+      for (let i = 0; i < contexts.length; i++) {
+        await expect(
+          statefulEngine.evaluate(`test-${i}`, rule, contexts[i])
+        ).resolves.toBeDefined();
+      }
     });
 
-    it('should handle circular references in context', () => {
+    it('should handle circular references in context', async () => {
       const rule = { changed: ['data.value'] };
       const context = { data: { value: 'test' } };
       context.data.circular = context; // Create circular reference
 
-      expect(() => {
-        statefulEngine.evaluate('circular-test', rule, context);
-      }).not.toThrow();
+      await expect(statefulEngine.evaluate('circular-test', rule, context)).resolves.toBeDefined();
     });
 
-    it('should maintain state isolation between different rule IDs', () => {
+    it('should maintain state isolation between different rule IDs', async () => {
       const rule = { changed: ['value'] };
 
       // Rule 1 sequence
-      statefulEngine.evaluate('rule1', rule, { value: 'a' });
-      statefulEngine.evaluate('rule1', rule, { value: 'b' }); // Should trigger
+      await statefulEngine.evaluate('rule1', rule, { value: 'a' });
+      await statefulEngine.evaluate('rule1', rule, { value: 'b' }); // Should trigger
 
       // Rule 2 sequence (independent)
-      statefulEngine.evaluate('rule2', rule, { value: 'x' });
-      const result = statefulEngine.evaluate('rule2', rule, { value: 'y' }); // Should trigger
+      await statefulEngine.evaluate('rule2', rule, { value: 'x' });
+      const result = await statefulEngine.evaluate('rule2', rule, { value: 'y' }); // Should trigger
 
       expect(result.triggered).toBe(true); // Rule2 should be independent
     });
 
-    it('should handle state clearing during active evaluations', () => {
+    it('should handle state clearing during active evaluations', async () => {
       const rule = { changed: ['value'] };
 
       // Set up initial state
-      statefulEngine.evaluate('test', rule, { value: 1 });
+      await statefulEngine.evaluate('test', rule, { value: 1 });
 
       // Clear state
       statefulEngine.clearState('test');
 
       // Next evaluation should behave as initial
-      const result = statefulEngine.evaluate('test', rule, { value: 2 });
+      const result = await statefulEngine.evaluate('test', rule, { value: 2 });
       expect(result.stateChange).toBe('initial');
       expect(result.triggered).toBe(false);
     });
   });
 
   describe('Integration with Existing Features', () => {
-    it('should work with rule helpers', () => {
+    it('should work with rule helpers', async () => {
       const { createRuleHelpers } = require('../../src/helpers/index.js');
       const helpers = createRuleHelpers();
 
@@ -360,18 +370,18 @@ describe('Stateful Features Integration', () => {
       const context1 = { user: { status: 'pending', active: true, tags: ['basic'] } };
       const context2 = { user: { status: 'active', active: true, tags: ['premium'] } };
 
-      statefulEngine.evaluate('complex', complexRule, context1);
-      const result = statefulEngine.evaluate('complex', complexRule, context2);
+      await statefulEngine.evaluate('complex', complexRule, context1);
+      const result = await statefulEngine.evaluate('complex', complexRule, context2);
 
       expect(result.triggered).toBe(true);
     });
 
-    it('should preserve engine metrics and performance tracking', () => {
+    it('should preserve engine metrics and performance tracking', async () => {
       const rule = { changed: ['value'] };
 
       // Perform several evaluations
       for (let i = 0; i < 5; i++) {
-        statefulEngine.evaluate('test', rule, { value: i });
+        await statefulEngine.evaluate('test', rule, { value: i });
       }
 
       const metrics = statefulEngine.engine.getMetrics();
@@ -379,7 +389,7 @@ describe('Stateful Features Integration', () => {
       expect(metrics.avgTime).toBeGreaterThan(0);
     });
 
-    it('should work with custom operators', () => {
+    it('should work with custom operators', async () => {
       // Register a custom operator
       statefulEngine.engine.registerOperator('isEven', (args, context) => {
         const value = statefulEngine.engine._internal.pathResolver.resolve(context, args[0]);
@@ -390,8 +400,8 @@ describe('Stateful Features Integration', () => {
         and: [{ changed: ['number'] }, { isEven: ['number'] }],
       };
 
-      statefulEngine.evaluate('mixed', mixedRule, { number: 1 });
-      const result = statefulEngine.evaluate('mixed', mixedRule, { number: 4 });
+      await statefulEngine.evaluate('mixed', mixedRule, { number: 1 });
+      const result = await statefulEngine.evaluate('mixed', mixedRule, { number: 4 });
 
       expect(result.triggered).toBe(true); // Number changed and is even
     });

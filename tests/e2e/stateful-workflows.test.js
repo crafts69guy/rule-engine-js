@@ -36,7 +36,7 @@ describe('End-to-End Stateful Workflows', () => {
       });
     });
 
-    it('should handle complete ticket lifecycle', () => {
+    it('should handle complete ticket lifecycle', async () => {
       const rules = {
         'notify-opened': { changedTo: ['ticket.status', 'open'] },
         'notify-assigned': { changedTo: ['ticket.status', 'assigned'] },
@@ -122,9 +122,9 @@ describe('End-to-End Stateful Workflows', () => {
       ];
 
       // Process each state
-      ticketStates.forEach((state) => {
-        ticketEngine.evaluateBatch(rules, state);
-      });
+      for (let i = 0; i < ticketStates.length; i++) {
+        await ticketEngine.evaluateBatch(rules, ticketStates[i]);
+      }
 
       // Verify notifications were sent at correct times
       expect(notifications).toHaveLength(4);
@@ -191,7 +191,7 @@ describe('End-to-End Stateful Workflows', () => {
       });
     });
 
-    it('should monitor inventory levels and trigger restocking', () => {
+    it('should monitor inventory levels and trigger restocking', async () => {
       const rules = {
         'low-stock-alert': {
           and: [
@@ -258,9 +258,9 @@ describe('End-to-End Stateful Workflows', () => {
       ];
 
       // Process inventory updates
-      inventoryStates.forEach((state) => {
-        inventoryEngine.evaluateBatch(rules, state);
-      });
+      for (let i = 0; i < inventoryStates.length; i++) {
+        await inventoryEngine.evaluateBatch(rules, inventoryStates[i]);
+      }
 
       // Should have generated low stock warning
       const lowStockAlerts = alerts.filter((a) => a.level === 'warning');
@@ -300,7 +300,7 @@ describe('End-to-End Stateful Workflows', () => {
       });
     });
 
-    it('should automate lighting and climate control', () => {
+    it('should automate lighting and climate control', async () => {
       const homeRules = {
         'turn-on-lights': {
           and: [{ changedTo: ['room.occupied', true] }, { lt: ['room.lightLevel', 30] }],
@@ -356,9 +356,9 @@ describe('End-to-End Stateful Workflows', () => {
       ];
 
       // Process home automation scenarios
-      scenarios.forEach((scenario) => {
-        homeEngine.evaluateBatch(homeRules, scenario);
-      });
+      for (let i = 0; i < scenarios.length; i++) {
+        await homeEngine.evaluateBatch(homeRules, scenarios[i]);
+      }
 
       // Verify automation actions were triggered
       const lightActions = automationActions.filter((a) => a.action.includes('lights'));
@@ -407,7 +407,7 @@ describe('End-to-End Stateful Workflows', () => {
       });
     });
 
-    it('should execute trading strategies with risk controls', () => {
+    it('should execute trading strategies with risk controls', async () => {
       const tradingRules = {
         'buy-momentum': {
           and: [
@@ -461,9 +461,9 @@ describe('End-to-End Stateful Workflows', () => {
       ];
 
       // Process market updates
-      marketUpdates.forEach((update) => {
-        tradingEngine.evaluateBatch(tradingRules, update);
-      });
+      for (let i = 0; i < marketUpdates.length; i++) {
+        await tradingEngine.evaluateBatch(tradingRules, marketUpdates[i]);
+      }
 
       // Verify trading decisions
       expect(trades).toHaveLength(2);
@@ -508,7 +508,7 @@ describe('End-to-End Stateful Workflows', () => {
           timestamp: Date.now() + i,
         };
 
-        realtimeEngine.evaluate(`reading-${i}`, rule, sensorData);
+        await realtimeEngine.evaluate(`reading-${i}`, rule, sensorData);
       }
 
       const processingTime = Date.now() - startTime;
