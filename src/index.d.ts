@@ -254,8 +254,8 @@ export class RuleHelpers {
   regex(left: string, right: string, options?: StringOptions): RuleExpression;
 
   // Array operators
-  in(left: string, right: unknown[], options?: ComparisonOptions): RuleExpression;
-  notIn(left: string, right: unknown[], options?: ComparisonOptions): RuleExpression;
+  in(left: string, right: unknown[] | string, options?: ComparisonOptions): RuleExpression;
+  notIn(left: string, right: unknown[] | string, options?: ComparisonOptions): RuleExpression;
 
   // Special operators
   between(value: string, range: [number, number], options?: ComparisonOptions): RuleExpression;

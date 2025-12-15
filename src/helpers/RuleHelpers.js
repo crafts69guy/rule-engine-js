@@ -196,9 +196,9 @@ export class RuleHelpers {
   // ============================================================================
 
   /**
-   * Value is in array
+   * Value is in array (includes)
    * @param {string} left - Path to the value
-   * @param {unknown[]} right - Array of values to check against
+   * @param {unknown[]|string} right - Array of values to check against or string separated by dot (path to array of values)
    * @param {ComparisonOptions} [options] - Optional comparison options
    * @returns {RuleExpression} Rule expression object
    */
@@ -209,9 +209,9 @@ export class RuleHelpers {
   }
 
   /**
-   * Value is not in array
+   * Value is not in array (not includes)
    * @param {string} left - Path to the value
-   * @param {unknown[]} right - Array of values to check against
+   * @param {unknown[] | string} right - Array of values to check against or string separated by dot (path to array of values)
    * @param {ComparisonOptions} [options] - Optional comparison options
    * @returns {RuleExpression} Rule expression object
    */

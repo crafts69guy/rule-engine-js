@@ -194,7 +194,7 @@ export interface ValidationHelpers {
   minAge(path: string, minAge: number): RuleExpression;
   maxAge(path: string, maxAge: number): RuleExpression;
   ageRange(path: string, minAge: number, maxAge: number): RuleExpression;
-  oneOf(path: string, values: unknown[]): RuleExpression;
+  oneOf(path: string, values: unknown[] | string): RuleExpression;
   minLength(path: string, minLength: number): RuleExpression;
   maxLength(path: string, maxLength: number): RuleExpression;
   lengthRange(path: string, minLength: number, maxLength: number): RuleExpression;
