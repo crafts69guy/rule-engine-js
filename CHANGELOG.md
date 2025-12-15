@@ -47,6 +47,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2025-12-15
+
+### Fixed
+
+- **🐛 accurate Types (Issue #4)**: Fixed multiple type definition mismatches:
+  - `evaluateExpr` now explicitly returns `EvaluationResult` to support `success` property checking.
+  - `RuleHelpers` comparison methods (`gte`, `eq`, etc.) now correctly treat `options` as optional.
+  - `rules.validation` helpers are now strictly defined (no longer "possibly undefined").
+  - `PathResolver` method `resolvePath` renamed to `resolve` to match implementation.
+  - Added missing `flags` property to `StringOptions` for use with `regex` operator.
+
+### Changed
+
+- **🧹 Type Alignment**: Removed unsupported options `caseInsensitive` and `trim` from `ComparisonOptions` and `StringOptions` types. These were previously defined in types but not supported by the engine. This change aligns types with the actual "Code as Source of Truth".
+- **📝 Config Types**: Added missing `persistence` configuration type for `StatefulRuleEngine`.
+
 ## [1.0.2] - 2025-08-20
 
 ### Added
