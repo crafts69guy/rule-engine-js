@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **🧹 Type Alignment**: Removed unsupported options `caseInsensitive` and `trim` from `ComparisonOptions` and `StringOptions` types. These were previously defined in types but not supported by the engine. This change aligns types with the actual "Code as Source of Truth".
 - **📝 Config Types**: Added missing `persistence` configuration type for `StatefulRuleEngine`.
+- **🛠️ Rule Helpers**: Updated `in`, `notIn`, and `oneOf` type definitions to support dynamic array paths (strings), enabling usage like `rules.in('write', 'permissions')`.
 
 ## [1.0.2] - 2025-08-20
 
