@@ -22,8 +22,8 @@ if (firstLine.length < 10) {
   process.exit(1);
 }
 
-if (firstLine.length > 72) {
-  console.error('❌ Commit message first line too long (maximum 72 characters)');
+if (firstLine.length > 120) {
+  console.error('❌ Commit message first line too long (maximum 120 characters)');
   process.exit(1);
 }
 
