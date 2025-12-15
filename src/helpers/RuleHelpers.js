@@ -1,6 +1,14 @@
 import { OPERATOR_NAMES } from '../constants/operators.js';
 
 /**
+ * @typedef {import('../types.d.ts').RuleExpression} RuleExpression
+ * @typedef {import('../types.d.ts').ComparisonOptions} ComparisonOptions
+ * @typedef {import('../types.d.ts').StringOptions} StringOptions
+ * @typedef {import('../types.d.ts').FieldHelpers} FieldHelpers
+ * @typedef {import('../types.d.ts').ValidationHelpers} ValidationHelpers
+ */
+
+/**
  * Rule building helpers
  * Makes it easy to construct rules without memorizing operator syntax
  */
@@ -19,6 +27,10 @@ export class RuleHelpers {
 
   /**
    * Equal to
+   * @param {string|number} left - Left operand (path or value)
+   * @param {string|number|boolean} right - Right operand (path or value)
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   eq(left, right, options) {
     // If options is explicitly passed (even if undefined), include it
@@ -29,6 +41,10 @@ export class RuleHelpers {
 
   /**
    * Not equal to
+   * @param {string|number} left - Left operand (path or value)
+   * @param {string|number|boolean} right - Right operand (path or value)
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   neq(left, right, options) {
     return arguments.length > 2
@@ -38,6 +54,10 @@ export class RuleHelpers {
 
   /**
    * Greater than
+   * @param {string|number} left - Left operand (path or value)
+   * @param {string|number} right - Right operand (path or value)
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   gt(left, right, options) {
     return arguments.length > 2
@@ -47,6 +67,10 @@ export class RuleHelpers {
 
   /**
    * Greater than or equal
+   * @param {string|number} left - Left operand (path or value)
+   * @param {string|number} right - Right operand (path or value)
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   gte(left, right, options) {
     return arguments.length > 2
@@ -56,6 +80,10 @@ export class RuleHelpers {
 
   /**
    * Less than
+   * @param {string|number} left - Left operand (path or value)
+   * @param {string|number} right - Right operand (path or value)
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   lt(left, right, options) {
     return arguments.length > 2
@@ -65,6 +93,10 @@ export class RuleHelpers {
 
   /**
    * Less than or equal
+   * @param {string|number} left - Left operand (path or value)
+   * @param {string|number} right - Right operand (path or value)
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   lte(left, right, options) {
     return arguments.length > 2
@@ -78,6 +110,8 @@ export class RuleHelpers {
 
   /**
    * Logical AND - all conditions must be true
+   * @param {...RuleExpression} expressions - Rule expressions to AND together
+   * @returns {RuleExpression} Combined rule expression
    */
   and(...expressions) {
     return { [this.ops.AND]: expressions };
@@ -85,6 +119,8 @@ export class RuleHelpers {
 
   /**
    * Logical OR - at least one condition must be true
+   * @param {...RuleExpression} expressions - Rule expressions to OR together
+   * @returns {RuleExpression} Combined rule expression
    */
   or(...expressions) {
     return { [this.ops.OR]: expressions };
@@ -92,6 +128,8 @@ export class RuleHelpers {
 
   /**
    * Logical NOT - negates the expression
+   * @param {RuleExpression} expression - Rule expression to negate
+   * @returns {RuleExpression} Negated rule expression
    */
   not(expression) {
     return { [this.ops.NOT]: [expression] };
@@ -103,6 +141,10 @@ export class RuleHelpers {
 
   /**
    * String contains
+   * @param {string} left - Path to the string field
+   * @param {string} right - Substring to search for
+   * @param {StringOptions} [options] - Optional string options
+   * @returns {RuleExpression} Rule expression object
    */
   contains(left, right, options) {
     return arguments.length > 2
@@ -112,6 +154,10 @@ export class RuleHelpers {
 
   /**
    * String starts with
+   * @param {string} left - Path to the string field
+   * @param {string} right - Prefix to check for
+   * @param {StringOptions} [options] - Optional string options
+   * @returns {RuleExpression} Rule expression object
    */
   startsWith(left, right, options) {
     return arguments.length > 2
@@ -121,6 +167,10 @@ export class RuleHelpers {
 
   /**
    * String ends with
+   * @param {string} left - Path to the string field
+   * @param {string} right - Suffix to check for
+   * @param {StringOptions} [options] - Optional string options
+   * @returns {RuleExpression} Rule expression object
    */
   endsWith(left, right, options) {
     return arguments.length > 2
@@ -130,6 +180,10 @@ export class RuleHelpers {
 
   /**
    * Regular expression match
+   * @param {string} left - Path to the string field
+   * @param {string} right - Regular expression pattern
+   * @param {StringOptions} [options] - Optional string options
+   * @returns {RuleExpression} Rule expression object
    */
   regex(left, right, options) {
     return arguments.length > 2
@@ -143,6 +197,10 @@ export class RuleHelpers {
 
   /**
    * Value is in array
+   * @param {string} left - Path to the value
+   * @param {unknown[]} right - Array of values to check against
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   in(left, right, options) {
     return arguments.length > 2
@@ -152,6 +210,10 @@ export class RuleHelpers {
 
   /**
    * Value is not in array
+   * @param {string} left - Path to the value
+   * @param {unknown[]} right - Array of values to check against
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   notIn(left, right, options) {
     return arguments.length > 2
@@ -165,6 +227,10 @@ export class RuleHelpers {
 
   /**
    * Value is between min and max (inclusive)
+   * @param {string} value - Path to the value
+   * @param {[number, number]} range - [min, max] range tuple
+   * @param {ComparisonOptions} [options] - Optional comparison options
+   * @returns {RuleExpression} Rule expression object
    */
   between(value, range, options) {
     return arguments.length > 2
@@ -174,6 +240,8 @@ export class RuleHelpers {
 
   /**
    * Value is null or undefined
+   * @param {string} path - Path to the value
+   * @returns {RuleExpression} Rule expression object
    */
   isNull(path) {
     return { [this.ops.IS_NULL]: [path] };
@@ -181,6 +249,8 @@ export class RuleHelpers {
 
   /**
    * Value is not null and not undefined
+   * @param {string} path - Path to the value
+   * @returns {RuleExpression} Rule expression object
    */
   isNotNull(path) {
     return { [this.ops.IS_NOT_NULL]: [path] };
@@ -192,6 +262,8 @@ export class RuleHelpers {
 
   /**
    * Field equals true
+   * @param {string} path - Path to the boolean field
+   * @returns {RuleExpression} Rule expression object
    */
   isTrue(path) {
     return this.eq(path, true);
@@ -199,6 +271,8 @@ export class RuleHelpers {
 
   /**
    * Field equals false
+   * @param {string} path - Path to the boolean field
+   * @returns {RuleExpression} Rule expression object
    */
   isFalse(path) {
     return this.eq(path, false);
@@ -206,6 +280,8 @@ export class RuleHelpers {
 
   /**
    * Field equals empty string
+   * @param {string} path - Path to the string field
+   * @returns {RuleExpression} Rule expression object
    */
   isEmpty(path) {
     return this.eq(path, '');
@@ -213,6 +289,8 @@ export class RuleHelpers {
 
   /**
    * Field does not equal empty string
+   * @param {string} path - Path to the string field
+   * @returns {RuleExpression} Rule expression object
    */
   isNotEmpty(path) {
     return this.neq(path, '');
@@ -220,6 +298,8 @@ export class RuleHelpers {
 
   /**
    * Field has any truthy value (exists and is not empty/false)
+   * @param {string} path - Path to the field
+   * @returns {RuleExpression} Rule expression object
    */
   exists(path) {
     return this.and(this.isNotNull(path), this.neq(path, ''), this.neq(path, false));
@@ -231,8 +311,14 @@ export class RuleHelpers {
 
   /**
    * Initialize field comparison helpers
+   * @returns {void}
+   * @private
    */
   _initializeFieldHelpers() {
+    /**
+     * Field comparison helpers for comparing two fields dynamically
+     * @type {FieldHelpers}
+     */
     this.field = {
       equals: (leftPath, rightPath, options) => this.eq(leftPath, rightPath, options),
       greaterThan: (leftPath, rightPath, options) => this.gt(leftPath, rightPath, options),
@@ -248,8 +334,14 @@ export class RuleHelpers {
 
   /**
    * Initialize validation helpers
+   * @returns {void}
+   * @private
    */
   _initializeValidationHelpers() {
+    /**
+     * Validation pattern helpers for common validation rules
+     * @type {ValidationHelpers}
+     */
     this.validation = {
       email: (path) => this.regex(path, '^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$'),
       required: (path) => this.and(this.isNotNull(path), this.isNotEmpty(path)),

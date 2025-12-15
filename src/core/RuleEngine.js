@@ -3,10 +3,25 @@ import { RuleEngineError } from '../utils/errors.js';
 import { DEFAULT_CONFIG } from '../constants/operators.js';
 
 /**
+ * @typedef {import('../types.d.ts').RuleExpression} RuleExpression
+ * @typedef {import('../types.d.ts').EvaluationContext} EvaluationContext
+ * @typedef {import('../types.d.ts').EvaluationResult} EvaluationResult
+ * @typedef {import('../types.d.ts').RuleEngineConfig} RuleEngineConfig
+ * @typedef {import('../types.d.ts').RuleEngineMetrics} RuleEngineMetrics
+ * @typedef {import('../types.d.ts').CacheStats} CacheStats
+ * @typedef {import('../types.d.ts').OperatorHandler} OperatorHandler
+ * @typedef {import('../types.d.ts').OperatorRegistrationOptions} OperatorRegistrationOptions
+ */
+
+/**
  * Main Rule Engine class
  * Handles rule evaluation, operator management, and performance tracking
  */
 export class RuleEngine {
+  /**
+   * Create a new RuleEngine instance
+   * @param {RuleEngineConfig} [config={}] - Configuration options
+   */
   constructor(config = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.pathResolver = new PathResolver(this.config);
@@ -27,10 +42,10 @@ export class RuleEngine {
 
   /**
    * Evaluate a rule expression against a context
-   * @param {Object} expr - The rule expression to evaluate
-   * @param {Object} context - The data context for evaluation
-   * @param {number} depth - Current recursion depth (for internal use)
-   * @returns {Object} Evaluation result with success flag and details
+   * @param {RuleExpression} expr - The rule expression to evaluate
+   * @param {EvaluationContext} context - The data context for evaluation
+   * @param {number} [depth=0] - Current recursion depth (for internal use)
+   * @returns {EvaluationResult} Evaluation result with success flag and details
    */
   evaluateExpr(expr, context, depth = 0) {
     const startTime = performance.now();
@@ -66,8 +81,8 @@ export class RuleEngine {
   /**
    * Register a custom operator
    * @param {string} name - Operator name
-   * @param {Function} handler - Operator implementation function
-   * @param {Object} options - Registration options
+   * @param {OperatorHandler} handler - Operator implementation function
+   * @param {OperatorRegistrationOptions} [options={}] - Registration options
    */
   registerOperator(name, handler, options = {}) {
     if (!options.allowOverwrite && this.operators.has(name)) {
@@ -91,7 +106,7 @@ export class RuleEngine {
 
   /**
    * Get performance metrics
-   * @returns {Object} Current performance metrics
+   * @returns {RuleEngineMetrics} Current performance metrics
    */
   getMetrics() {
     return { ...this.metrics };
@@ -109,7 +124,7 @@ export class RuleEngine {
 
   /**
    * Get current configuration
-   * @returns {Object} Current configuration object
+   * @returns {RuleEngineConfig} Current configuration object
    */
   getConfig() {
     return { ...this.config };
@@ -117,7 +132,7 @@ export class RuleEngine {
 
   /**
    * Get cache statistics
-   * @returns {Object} Cache statistics for monitoring
+   * @returns {CacheStats} Cache statistics for monitoring
    */
   getCacheStats() {
     return {
