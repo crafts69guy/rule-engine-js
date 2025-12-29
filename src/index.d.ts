@@ -32,7 +32,19 @@ import {
   HistoryEntry,
   StatefulEventType,
   StatefulEventListener,
-  StatefulRuleEngineConfig
+  StatefulRuleEngineConfig,
+  // Path utility types
+  Path,
+  PathValue,
+  PathsOfType,
+  NumericPath,
+  StringPath,
+  BooleanPath,
+  ArrayPath,
+  // Typed helpers
+  TypedFieldHelpers,
+  TypedValidationHelpers,
+  TypedRuleHelpers,
 } from './types';
 
 // =============================================================================
@@ -143,7 +155,7 @@ export class StatefulRuleEngine {
    * Remove event listener
    */
   off(event: StatefulEventType, listener: StatefulEventListener): void;
-  
+
   /**
    * Emit event to all listeners
    */
@@ -173,7 +185,7 @@ export class StatefulRuleEngine {
    * Get state statistics
    */
   getStateStats(): StateStats;
-  
+
   /**
    * Get concurrency statistics
    */
@@ -315,7 +327,7 @@ export class TypeUtils {
   static coerceToString(value: unknown, strict?: boolean): string | null;
   static coerceToBoolean(value: unknown, strict?: boolean): boolean | null;
   static isEqual(left: unknown, right: unknown, strict?: boolean): boolean;
-  
+
   static isObject(value: unknown): value is Record<string, unknown>;
   static isArray(value: unknown): value is unknown[];
   static isString(value: unknown): value is string;
@@ -371,6 +383,24 @@ export function createRuleEngine(config?: RuleEngineConfig): {
 };
 
 /**
- * Create a new RuleHelpers instance
+ * Create a new RuleHelpers instance (untyped)
  */
 export function createRuleHelpers(): RuleHelpers;
+
+/**
+ * Create a new TypedRuleHelpers instance with path autocomplete
+ * @example
+ * interface MyContext {
+ *   user: { name: string; age: number; email: string };
+ *   order: { total: number; status: string };
+ * }
+ *
+ * const helpers = createRuleHelpers<MyContext>();
+ *
+ * // IDE will autocomplete paths: 'user', 'user.name', 'user.age', etc.
+ * const rule = helpers.and(
+ *   helpers.gte('user.age', 18),        // ✓ path autocomplete
+ *   helpers.eq('user.name', 'John'),    // ✓ type-safe value
+ * );
+ */
+export function createRuleHelpers<T>(): TypedRuleHelpers<T>;
