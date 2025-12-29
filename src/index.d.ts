@@ -22,8 +22,6 @@ import {
   StateOperatorNames,
   ComparisonOptions,
   StringOptions,
-  FieldHelpers,
-  ValidationHelpers,
   StatefulEvaluationResult,
   BatchEvaluationResult,
   BatchEvaluationOptions,
@@ -41,10 +39,6 @@ import {
   StringPath,
   BooleanPath,
   ArrayPath,
-  // Typed helpers
-  TypedFieldHelpers,
-  TypedValidationHelpers,
-  TypedRuleHelpers,
 } from './types';
 
 // =============================================================================
@@ -227,59 +221,188 @@ export class StatefulRuleEngine {
   destroy(): void;
 }
 
+// =============================================================================
+// RULE HELPERS
+// =============================================================================
+
 /**
- * Rule building helpers class
+ * Field comparison helpers with optional path autocomplete
+ * @template T - Context type for path inference (default: any for untyped usage)
  */
-export class RuleHelpers {
+export interface FieldHelpers<T = any> {
+  equals<P extends Path<T>>(
+    leftPath: P,
+    rightPath: Path<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+  greaterThan<P extends NumericPath<T>>(
+    leftPath: P,
+    rightPath: NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+  greaterThanOrEqual<P extends NumericPath<T>>(
+    leftPath: P,
+    rightPath: NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+  lessThan<P extends NumericPath<T>>(
+    leftPath: P,
+    rightPath: NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+  lessThanOrEqual<P extends NumericPath<T>>(
+    leftPath: P,
+    rightPath: NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+}
+
+/**
+ * Validation helpers with optional path autocomplete
+ * @template T - Context type for path inference (default: any for untyped usage)
+ */
+export interface ValidationHelpers<T = any> {
+  email<P extends StringPath<T>>(path: P): RuleExpression;
+  required<P extends Path<T>>(path: P): RuleExpression;
+  minAge<P extends NumericPath<T>>(path: P, minAge: number): RuleExpression;
+  maxAge<P extends NumericPath<T>>(path: P, maxAge: number): RuleExpression;
+  ageRange<P extends NumericPath<T>>(path: P, minAge: number, maxAge: number): RuleExpression;
+  oneOf<P extends Path<T>>(path: P, values: PathValue<T, P>[] | ArrayPath<T>): RuleExpression;
+  minLength<P extends StringPath<T>>(path: P, minLength: number): RuleExpression;
+  maxLength<P extends StringPath<T>>(path: P, maxLength: number): RuleExpression;
+  lengthRange<P extends StringPath<T>>(
+    path: P,
+    minLength: number,
+    maxLength: number
+  ): RuleExpression;
+  exactLength<P extends StringPath<T>>(path: P, length: number): RuleExpression;
+}
+
+/**
+ * Rule building helpers class with optional path autocomplete
+ *
+ * @template T - Context type for path inference (default: any for untyped usage)
+ *
+ * @example
+ * // Untyped usage (backward compatible)
+ * const helpers = createRuleHelpers();
+ * helpers.eq('any.path', 'value');
+ *
+ * @example
+ * // Typed usage with path autocomplete
+ * interface UserContext {
+ *   user: { name: string; age: number; email: string };
+ *   order: { total: number; status: string };
+ * }
+ *
+ * const helpers = createRuleHelpers<UserContext>();
+ *
+ * // IDE will autocomplete paths: 'user', 'user.name', 'user.age', etc.
+ * const rule = helpers.and(
+ *   helpers.gte('user.age', 18),        // ✓ path autocomplete
+ *   helpers.eq('user.name', 'John'),    // ✓ type-safe value
+ * );
+ */
+export class RuleHelpers<T = any> {
   /** Operator name constants */
   ops: OperatorNames;
   /** Field comparison helpers */
-  field: FieldHelpers;
+  field: FieldHelpers<T>;
   /** Validation pattern helpers */
-  validation: ValidationHelpers;
+  validation: ValidationHelpers<T>;
 
-  // Comparison operators
-  eq(
-    left: string | number,
-    right: string | number | boolean,
+  // Comparison operators with path autocomplete
+  eq<P extends Path<T>>(
+    left: P,
+    right: PathValue<T, P> | Path<T>,
     options?: ComparisonOptions
   ): RuleExpression;
-  neq(
-    left: string | number,
-    right: string | number | boolean,
+
+  neq<P extends Path<T>>(
+    left: P,
+    right: PathValue<T, P> | Path<T>,
     options?: ComparisonOptions
   ): RuleExpression;
-  gt(left: string | number, right: string | number, options?: ComparisonOptions): RuleExpression;
-  gte(left: string | number, right: string | number, options?: ComparisonOptions): RuleExpression;
-  lt(left: string | number, right: string | number, options?: ComparisonOptions): RuleExpression;
-  lte(left: string | number, right: string | number, options?: ComparisonOptions): RuleExpression;
+
+  gt<P extends NumericPath<T>>(
+    left: P,
+    right: number | NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+
+  gte<P extends NumericPath<T>>(
+    left: P,
+    right: number | NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+
+  lt<P extends NumericPath<T>>(
+    left: P,
+    right: number | NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+
+  lte<P extends NumericPath<T>>(
+    left: P,
+    right: number | NumericPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
 
   // Logical operators
   and(...expressions: RuleExpression[]): RuleExpression;
   or(...expressions: RuleExpression[]): RuleExpression;
   not(expression: RuleExpression): RuleExpression;
 
-  // String operators
-  contains(left: string, right: string, options?: StringOptions): RuleExpression;
-  startsWith(left: string, right: string, options?: StringOptions): RuleExpression;
-  endsWith(left: string, right: string, options?: StringOptions): RuleExpression;
-  regex(left: string, right: string, options?: StringOptions): RuleExpression;
+  // String operators with path autocomplete
+  contains<P extends StringPath<T>>(
+    left: P,
+    right: string | StringPath<T>,
+    options?: StringOptions
+  ): RuleExpression;
 
-  // Array operators
-  in(left: string, right: unknown[] | string, options?: ComparisonOptions): RuleExpression;
-  notIn(left: string, right: unknown[] | string, options?: ComparisonOptions): RuleExpression;
+  startsWith<P extends StringPath<T>>(
+    left: P,
+    right: string | StringPath<T>,
+    options?: StringOptions
+  ): RuleExpression;
 
-  // Special operators
-  between(value: string, range: [number, number], options?: ComparisonOptions): RuleExpression;
-  isNull(path: string): RuleExpression;
-  isNotNull(path: string): RuleExpression;
+  endsWith<P extends StringPath<T>>(
+    left: P,
+    right: string | StringPath<T>,
+    options?: StringOptions
+  ): RuleExpression;
 
-  // Convenience methods
-  isTrue(path: string): RuleExpression;
-  isFalse(path: string): RuleExpression;
-  isEmpty(path: string): RuleExpression;
-  isNotEmpty(path: string): RuleExpression;
-  exists(path: string): RuleExpression;
+  regex<P extends StringPath<T>>(left: P, right: string, options?: StringOptions): RuleExpression;
+
+  // Array operators with path autocomplete
+  in<P extends Path<T>>(
+    left: P,
+    right: PathValue<T, P>[] | ArrayPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+
+  notIn<P extends Path<T>>(
+    left: P,
+    right: PathValue<T, P>[] | ArrayPath<T>,
+    options?: ComparisonOptions
+  ): RuleExpression;
+
+  // Special operators with path autocomplete
+  between<P extends NumericPath<T>>(
+    value: P,
+    range: [number, number],
+    options?: ComparisonOptions
+  ): RuleExpression;
+
+  isNull<P extends Path<T>>(path: P): RuleExpression;
+  isNotNull<P extends Path<T>>(path: P): RuleExpression;
+
+  // Convenience methods with path autocomplete
+  isTrue<P extends BooleanPath<T>>(path: P): RuleExpression;
+  isFalse<P extends BooleanPath<T>>(path: P): RuleExpression;
+  isEmpty<P extends StringPath<T>>(path: P): RuleExpression;
+  isNotEmpty<P extends StringPath<T>>(path: P): RuleExpression;
+  exists<P extends Path<T>>(path: P): RuleExpression;
 }
 
 // =============================================================================
@@ -405,4 +528,4 @@ export function createRuleEngine(config?: RuleEngineConfig): {
  *   helpers.eq('user.name', 'John'),    // ✓ type-safe value
  * );
  */
-export function createRuleHelpers<T = any>(): TypedRuleHelpers<T>;
+export function createRuleHelpers<T = any>(): RuleHelpers<T>;
