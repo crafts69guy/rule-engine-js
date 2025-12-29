@@ -383,13 +383,15 @@ export function createRuleEngine(config?: RuleEngineConfig): {
 };
 
 /**
- * Create a new RuleHelpers instance (untyped)
- */
-export function createRuleHelpers(): RuleHelpers;
-
-/**
- * Create a new TypedRuleHelpers instance with path autocomplete
+ * Create a new RuleHelpers instance
+ *
  * @example
+ * // Untyped usage (backward compatible)
+ * const helpers = createRuleHelpers();
+ * helpers.eq('any.path', 'value');
+ *
+ * @example
+ * // Typed usage with path autocomplete
  * interface MyContext {
  *   user: { name: string; age: number; email: string };
  *   order: { total: number; status: string };
@@ -403,4 +405,4 @@ export function createRuleHelpers(): RuleHelpers;
  *   helpers.eq('user.name', 'John'),    // ✓ type-safe value
  * );
  */
-export function createRuleHelpers<T>(): TypedRuleHelpers<T>;
+export function createRuleHelpers<T = any>(): TypedRuleHelpers<T>;
