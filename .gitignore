@@ -7,7 +7,7 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
-types/
+/types/
 *.tgz
 
 # Coverage directory used by tools like istanbul
