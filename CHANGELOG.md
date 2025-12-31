@@ -47,6 +47,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] - 2025-12-31
+
+### Added
+
+- **🎯 Typed Path Autocomplete**: New `Path<T>` and related utility types for IDE path autocomplete
+  - `Path<T>` - All valid dot-notation paths in a type
+  - `PathValue<T, P>` - Get value type at a specific path
+  - `NumericPath<T>`, `StringPath<T>`, `BooleanPath<T>`, `ArrayPath<T>` - Type-filtered paths
+  - Generic `RuleHelpers<T>` class with full path autocomplete support
+
+### Changed
+
+- **🔧 RuleHelpers Consolidation**: Merged multiple type overloads into single generic signature
+  - `createRuleHelpers<T>()` now accepts optional generic type parameter
+  - Backward compatible: untyped usage works exactly as before
+
+## [1.0.6] - 2025-12-25
+
+### Added
+
+- TypeScript declaration files with improved JSDoc comments
+
+### Changed
+
+- Extended `in`, `notIn`, `oneOf` operators to accept string paths for dynamic array lookup
+- Updated rule helper type definitions for dynamic array paths
+
+## [1.0.5] - 2025-12-20
+
+### Fixed
+
+- Type definition fixes and alignment with implementation
+
+### Changed
+
+- Increased commit message length limit from 72 to 120 characters
+
 ## [1.0.4] - 2025-12-15
 
 ### Fixed
@@ -246,6 +283,11 @@ When contributing to this project, please follow these changelog guidelines:
 
 ## Version History
 
+- **1.0.7**: Typed path autocomplete with `Path<T>` utility types
+- **1.0.6**: Dynamic array path support for `in`, `notIn`, `oneOf`
+- **1.0.5**: Type definition fixes
+- **1.0.4**: Type definition alignment
+- **1.0.3**: Stateful Rule Engine and state change operators
 - **1.0.0**: First stable release with complete feature set
 - **0.9.x**: Development and testing phases
 - **0.1.0**: Initial project setup

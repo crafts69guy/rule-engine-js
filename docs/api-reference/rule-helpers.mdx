@@ -340,17 +340,92 @@ console.log(result.success); // true
 
 ## TypeScript
 
-Full type support:
+### Basic Usage
 
 ```typescript
 import { createRuleHelpers } from 'rule-engine-js';
-import type { RuleHelpers, RuleExpression } from 'rule-engine-js';
+import type { RuleExpression } from 'rule-engine-js';
 
-const rules: RuleHelpers = createRuleHelpers();
+const rules = createRuleHelpers();
 const rule: RuleExpression = rules.and(
   rules.gte('age', 18),
   rules.eq('role', 'admin')
 );
+```
+
+### Typed Path Autocomplete <Badge>v1.0.7+</Badge>
+
+Get IDE autocomplete for object paths by passing a type parameter:
+
+```typescript
+// 1. Define your context type
+interface UserContext {
+  user: {
+    name: string;
+    age: number;
+    email: string;
+  };
+  order: {
+    total: number;
+    status: 'pending' | 'paid' | 'shipped';
+  };
+}
+
+// 2. Pass type to createRuleHelpers
+const rules = createRuleHelpers<UserContext>();
+
+// 3. Get autocomplete!
+const rule = rules.and(
+  rules.gte('user.age', 18),      // IDE suggests: user.age, order.total
+  rules.eq('order.status', 'paid') // IDE suggests: pending, paid, shipped
+);
+```
+
+<Info>
+**How it works**: The generic type `T` enables TypeScript to infer all valid paths in your object structure and provide autocomplete suggestions.
+</Info>
+
+### Type-Safe Operators
+
+Numeric operators only accept numeric paths:
+
+```typescript
+interface Context {
+  user: { name: string; age: number };
+  score: number;
+}
+
+const rules = createRuleHelpers<Context>();
+
+rules.gte('user.age', 18);  // ✓ age is number
+rules.gte('score', 100);    // ✓ score is number
+rules.gte('user.name', 5);  // ✗ TypeScript error: name is string
+```
+
+### Dynamic Array Lookup
+
+Use string paths to reference arrays in your context:
+
+```typescript
+interface Context {
+  value: string;
+  allowedValues: string[];
+}
+
+const rules = createRuleHelpers<Context>();
+
+// Check if 'value' exists in 'allowedValues' array
+rules.in('value', 'allowedValues');
+```
+
+### Backward Compatibility
+
+Untyped usage works exactly as before:
+
+```typescript
+// No type parameter = any path allowed
+const rules = createRuleHelpers();
+rules.eq('any.path.here', 'value'); // ✓ works
 ```
 
 ---

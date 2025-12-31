@@ -4,11 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-- **Version**: 1.0.3-beta.0
-- **Status**: Beta release with Phase 3 production features complete
+- **Version**: 1.0.7
+- **Status**: Stable release with typed path autocomplete
 - **Test Coverage**: 615 tests (614 passing, 1 skipped), >90% code coverage
 - **Main Branch**: production
-- **Current Branch**: feature/stateful-operator
 
 ## Development Commands
 

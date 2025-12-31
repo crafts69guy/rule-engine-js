@@ -257,6 +257,44 @@ const approved = engine.evaluateExpr(approvalRule, application);
 
 </details>
 
+## 📘 TypeScript Support
+
+Full TypeScript support with **path autocomplete** for better developer experience.
+
+### Typed Path Autocomplete (v1.0.7+)
+
+```typescript
+import { createRuleHelpers, createRuleEngine } from 'rule-engine-js';
+
+// Define your context type
+interface OrderContext {
+  user: { name: string; age: number; email: string };
+  order: { total: number; status: 'pending' | 'paid' | 'shipped' };
+  items: Array<{ price: number; qty: number }>;
+}
+
+// Create typed helpers - IDE will autocomplete paths!
+const rules = createRuleHelpers<OrderContext>();
+
+// ✓ Autocomplete: 'user.name', 'user.age', 'order.total', etc.
+const canCheckout = rules.and(
+  rules.gte('user.age', 18), // only numeric paths allowed
+  rules.eq('order.status', 'pending'), // type-safe values
+  rules.gt('order.total', 0)
+);
+
+// ✓ Dynamic array lookup with string paths
+const hasWritePermission = rules.in('write', 'user.permissions');
+```
+
+### Untyped Usage (Backward Compatible)
+
+```typescript
+// Works exactly as before - no breaking changes
+const rules = createRuleHelpers();
+rules.eq('any.path.here', 'value');
+```
+
 ## 📚 Available Operators
 
 | Category         | Operators                                                                                        | Description                               |
