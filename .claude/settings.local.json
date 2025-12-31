@@ -4,7 +4,8 @@
       "Bash(for file in operators/string.mdx operators/array.mdx operators/numeric.mdx operators/special.mdx operators/state.mdx)",
       "Bash(done)",
       "Bash(curl:*)",
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Bash(gh issue list:*)"
     ],
     "deny": [],
     "ask": []
