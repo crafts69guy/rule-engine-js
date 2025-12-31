@@ -270,7 +270,7 @@ import { createRuleHelpers, createRuleEngine } from 'rule-engine-js';
 interface OrderContext {
   user: { name: string; age: number; email: string };
   order: { total: number; status: 'pending' | 'paid' | 'shipped' };
-  items: Array<{ price: number; qty: number }>;
+  allowedStatuses: string[];
 }
 
 // Create typed helpers - IDE will autocomplete paths!
@@ -284,7 +284,7 @@ const canCheckout = rules.and(
 );
 
 // ✓ Dynamic array lookup with string paths
-const hasWritePermission = rules.in('write', 'user.permissions');
+const isValidStatus = rules.in('order.status', 'allowedStatuses');
 ```
 
 ### Untyped Usage (Backward Compatible)
