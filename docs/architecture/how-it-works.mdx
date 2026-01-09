@@ -1,0 +1,195 @@
+---
+title: 'How It Works'
+description: 'Step-by-step evaluation flow'
+icon: 'gears'
+---
+
+## The Evaluation Flow
+
+When you call `evaluateExpr()`, four things happen:
+
+```mermaid
+flowchart LR
+    A[Parse] --> B[Resolve]
+    B --> C[Execute]
+    C --> D[Return]
+```
+
+Let's trace through this example:
+
+```javascript
+const rule = {
+  and: [{ gte: ['user.age', 18] }, { eq: ['user.role', 'member'] }],
+};
+
+const data = {
+  user: { age: 25, role: 'member' },
+};
+
+engine.evaluateExpr(rule, data);
+```
+
+---
+
+## Step 1: Parse the Rule
+
+Engine reads the rule and finds the operator.
+
+```mermaid
+flowchart LR
+    A["{ and: [...] }"] --> B["Operator: 'and'"]
+    B --> C["Args: 2 sub-rules"]
+```
+
+The **first key** of the object is always the operator name.
+
+---
+
+## Step 2: Resolve Paths
+
+For each argument, engine extracts values from your data.
+
+```mermaid
+flowchart TB
+    subgraph ResolveRule["Resolve: gte user.age, 18"]
+        A1["'user.age'"] --> B1["PathResolver"]
+        B1 --> C1["data.user.age = 25"]
+    end
+```
+
+```javascript
+// PathResolver does this safely:
+'user.age' → data.user.age → 25
+
+// It blocks dangerous paths:
+'__proto__' → blocked
+'constructor' → blocked
+```
+
+---
+
+## Step 3: Execute Operator
+
+With resolved values, operator runs its logic.
+
+```mermaid
+flowchart TB
+    subgraph GteOp["gte operator"]
+        A["gte 25, 18"] --> B["25 >= 18?"]
+        B --> C["true"]
+    end
+
+    subgraph EqOp["eq operator"]
+        D["eq member, member"] --> E["equal?"]
+        E --> F["true"]
+    end
+
+    subgraph AndOp["and operator"]
+        C --> G["and true, true"]
+        F --> G
+        G --> H["true"]
+    end
+```
+
+---
+
+## Step 4: Return Result
+
+Engine returns a result object:
+
+```javascript
+{
+  success: true,    // Did the rule pass?
+  details: { ... }  // Debug info (if enabled)
+}
+```
+
+---
+
+## Caching
+
+Engine caches results for speed. Same rule + same data = instant return.
+
+```mermaid
+flowchart LR
+    A[Rule + Data] --> B{In cache?}
+    B -->|Yes| C[Return cached]
+    B -->|No| D[Evaluate]
+    D --> E[Cache result]
+    E --> F[Return]
+```
+
+```javascript
+// First call: ~2ms (evaluates)
+engine.evaluateExpr(rule, data);
+
+// Second call: ~0.1ms (cached)
+engine.evaluateExpr(rule, data);
+```
+
+---
+
+## Stateful Evaluation
+
+`StatefulRuleEngine` adds state tracking on top:
+
+```mermaid
+flowchart TB
+    A[evaluate called] --> B[Load previous state]
+    B --> C[Add _previous to context]
+    C --> D[RuleEngine.evaluateExpr]
+    D --> E[Save current as _previous]
+    E --> F[Fire events if triggered]
+    F --> G[Return result]
+```
+
+```javascript
+// First call - no previous state
+await statefulEngine.evaluate('temp-check', rule, { temp: 20 });
+// { success: false, triggered: false }
+
+// Second call - temp increased and crossed threshold
+await statefulEngine.evaluate('temp-check', rule, { temp: 35 });
+// { success: true, triggered: true }
+// Event 'triggered' fires!
+```
+
+---
+
+## Error Recovery Flow
+
+When errors happen, recovery kicks in:
+
+```mermaid
+flowchart TB
+    A[Evaluate] --> B{Circuit open?}
+    B -->|Yes| C[Reject]
+    B -->|No| D[Try execute]
+    D --> E{Success?}
+    E -->|Yes| F[Return result]
+    E -->|No| G{Retry?}
+    G -->|Yes| H[Wait & retry]
+    H --> D
+    G -->|No| I{Fallback?}
+    I -->|Yes| J[Return fallback]
+    I -->|No| K[Throw error]
+```
+
+| Recovery            | What it does                |
+| ------------------- | --------------------------- |
+| **Circuit Breaker** | Stops calling failing rules |
+| **Retry**           | Tries again with backoff    |
+| **Fallback**        | Returns safe default        |
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Internals" icon="microscope" href="/architecture/internals">
+    Deep dive into source code
+  </Card>
+  <Card title="Operators" icon="code" href="/operators/overview">
+    All 20+ operators explained
+  </Card>
+</CardGroup>

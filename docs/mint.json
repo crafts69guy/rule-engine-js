@@ -53,6 +53,10 @@
       "pages": ["introduction", "quickstart", "installation"]
     },
     {
+      "group": "Architecture",
+      "pages": ["architecture/index", "architecture/how-it-works", "architecture/internals"]
+    },
+    {
       "group": "Core Concepts",
       "pages": [
         "essentials/rule-engine",

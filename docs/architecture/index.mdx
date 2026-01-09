@@ -1,0 +1,99 @@
+---
+title: 'Architecture'
+description: 'Understand Rule Engine in 2 minutes'
+icon: 'cube'
+---
+
+## The Core Idea
+
+Rule Engine is like a **judge**:
+
+- **Rules** = Laws to check
+- **Context** = Evidence (your data)
+- **Engine** = Judge who decides
+
+```mermaid
+flowchart LR
+    A["📜 Rule<br/>age >= 18"] --> C["⚖️ Engine"]
+    B["📁 Data<br/>age: 25"] --> C
+    C --> D["✅ Pass or ❌ Fail"]
+```
+
+```javascript
+// This is all you need to know
+const rule = { gte: ['age', 18] };
+const data = { age: 25 };
+
+engine.evaluateExpr(rule, data);
+// { success: true }
+```
+
+---
+
+## Three Building Blocks
+
+```mermaid
+flowchart TB
+    subgraph Core["Core Engine"]
+        RE[RuleEngine]
+        RE --- R1[Evaluates rules]
+        RE --- R2[Caches results]
+    end
+
+    subgraph Ops["Operators"]
+        OP[20+ operators]
+        OP --- O1[eq, gt, lt...]
+        OP --- O2[and, or, not]
+        OP --- O3[contains, in...]
+    end
+
+    subgraph Path["Path Resolver"]
+        PR[PathResolver]
+        PR --- P1[Reads nested data]
+        PR --- P2[Blocks unsafe paths]
+    end
+```
+
+| Block            | What it does               | Example                            |
+| ---------------- | -------------------------- | ---------------------------------- |
+| **RuleEngine**   | Runs rules against data    | `engine.evaluateExpr(rule, data)`  |
+| **Operators**    | Logic building blocks      | `eq`, `and`, `contains`, `between` |
+| **PathResolver** | Safely reads nested values | `'user.profile.age'` → `25`        |
+
+---
+
+## Optional: Stateful Engine
+
+Need to track changes over time? Wrap with `StatefulRuleEngine`:
+
+```mermaid
+flowchart LR
+    A[RuleEngine] --> B[StatefulRuleEngine]
+    B --> C[Tracks previous values]
+    B --> D[Fires events]
+    B --> E[Handles errors]
+```
+
+```javascript
+// Detect when temperature increases above 30
+const rule = {
+  and: [{ increased: ['temperature'] }, { gte: ['temperature', 30] }],
+};
+
+statefulEngine.on('triggered', (e) => {
+  console.log('Alert! Temperature rising');
+});
+```
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="How It Works" icon="gears" href="/architecture/how-it-works">
+    Step-by-step evaluation flow
+  </Card>
+  <Card title="Internals" icon="microscope" href="/architecture/internals">
+    Deep dive for contributors
+  </Card>
+</CardGroup>

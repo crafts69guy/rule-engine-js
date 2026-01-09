@@ -1,0 +1,295 @@
+---
+title: 'Internals'
+description: 'Deep dive for contributors'
+icon: 'microscope'
+---
+
+<Note>This page is for contributors who want to understand or modify the source code.</Note>
+
+## Source Structure
+
+```
+src/
+├── index.js                 # Public exports
+├── core/
+│   ├── RuleEngine.js        # Main engine
+│   ├── PathResolver.js      # Path resolution
+│   ├── StatefulRuleEngine.js
+│   ├── concurrency/         # Queue management
+│   ├── history/             # State history
+│   └── recovery/            # Error handling
+├── operators/               # All operators
+├── helpers/                 # RuleHelpers fluent API
+└── utils/                   # TypeUtils, errors
+```
+
+---
+
+## Layer Architecture
+
+```mermaid
+graph TB
+    subgraph L4["Public API"]
+        A[createRuleEngine]
+        B[createRuleHelpers]
+        C[StatefulRuleEngine]
+    end
+
+    subgraph L3["Resilience"]
+        D[ErrorRecoveryManager]
+        E[ConcurrencyManager]
+        F[HistoryManager]
+    end
+
+    subgraph L2["State"]
+        G[StatefulRuleEngine internals]
+        G --> H[Event emitter]
+        G --> I[State tracking]
+    end
+
+    subgraph L1["Core"]
+        J[RuleEngine]
+        K[PathResolver]
+        L[Operator Registry]
+    end
+
+    A --> J
+    C --> D & E & F
+    D & E --> G
+    G --> J
+    J --> K & L
+```
+
+---
+
+## RuleEngine Internals
+
+### Operator Registry
+
+Operators are stored in a `Map`:
+
+```javascript
+// Registration
+engine.operators.set('eq', {
+  handler: (args, ctx) => { ... },
+  options: { minArgs: 2 }
+});
+
+// Lookup
+const op = engine.operators.get('eq');
+op.handler(args, context);
+```
+
+### Cache Key Generation
+
+```mermaid
+flowchart LR
+    A[Rule JSON] --> C[Hash]
+    B[Context ID] --> C
+    C --> D[Cache Key]
+```
+
+Context ID is derived from:
+
+1. Explicit `_id` field
+2. Explicit `id` field
+3. Hash of context values
+
+---
+
+## Operator Execution
+
+All operators follow this signature:
+
+```javascript
+handler(args, context, evaluateExpr, depth) → boolean
+```
+
+| Param          | Purpose                      |
+| -------------- | ---------------------------- |
+| `args`         | Operator arguments from rule |
+| `context`      | Data + `_previous` + `_meta` |
+| `evaluateExpr` | Callback for nested rules    |
+| `depth`        | Current nesting level        |
+
+### Example: `eq` operator
+
+```javascript
+function eq(args, context, evaluateExpr, depth) {
+  const [left, right] = args;
+
+  const leftVal = pathResolver.resolve(context, left);
+  const rightVal = pathResolver.resolve(context, right);
+
+  return leftVal === rightVal;
+}
+```
+
+---
+
+## StatefulRuleEngine Pipeline
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Stateful
+    participant Recovery
+    participant Concurrency
+    participant Engine
+
+    Client->>Stateful: evaluate(ruleId, rule, ctx)
+    Stateful->>Recovery: execute()
+    Recovery->>Recovery: Check circuit breaker
+    Recovery->>Concurrency: execute()
+    Concurrency->>Concurrency: Queue if needed
+    Concurrency->>Stateful: _evaluateInternal()
+    Stateful->>Stateful: Enrich context
+    Stateful->>Engine: evaluateExpr()
+    Engine-->>Stateful: result
+    Stateful->>Stateful: Update state, fire events
+    Stateful-->>Client: enriched result
+```
+
+---
+
+## Concurrency Strategies
+
+```mermaid
+flowchart TB
+    subgraph Parallel
+        P1[All execute immediately]
+    end
+
+    subgraph Sequential
+        S1[Queue 1] --> S2[Queue 2] --> S3[Queue 3]
+    end
+
+    subgraph PerRule
+        R1[Rule A queue]
+        R2[Rule B queue]
+        R1 & R2 --> R3[Parallel between rules]
+    end
+```
+
+| Strategy   | Use case                |
+| ---------- | ----------------------- |
+| Parallel   | Default, max throughput |
+| Sequential | Order matters           |
+| Per-Rule   | Isolate rule execution  |
+
+---
+
+## Error Recovery
+
+Three components work together:
+
+```mermaid
+flowchart LR
+    A[Request] --> B[CircuitBreaker]
+    B -->|closed| C[RetryManager]
+    B -->|open| X[Reject]
+    C -->|success| D[Return]
+    C -->|fail| E[FallbackManager]
+    E --> F[Fallback value]
+```
+
+### Circuit Breaker States
+
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: failures >= threshold
+    Open --> HalfOpen: timeout
+    HalfOpen --> Closed: success
+    HalfOpen --> Open: failure
+```
+
+### Retry Strategies
+
+| Strategy    | Delay pattern           |
+| ----------- | ----------------------- |
+| Exponential | 100 → 200 → 400 → 800ms |
+| Fixed       | 100 → 100 → 100 → 100ms |
+| Linear      | 100 → 200 → 300 → 400ms |
+
+---
+
+## History Managers
+
+```mermaid
+flowchart TB
+    subgraph Global["GlobalHistoryManager"]
+        G1[Single FIFO queue]
+        G1 --> G2[Shared across all rules]
+        G2 --> G3[Risk: one rule dominates]
+    end
+
+    subgraph PerRule["PerRuleHistoryManager"]
+        P1[Queue per rule]
+        P1 --> P2[Isolated history]
+        P2 --> P3[Fair distribution]
+    end
+```
+
+Use `PerRuleHistoryManager` for production with multiple rules.
+
+---
+
+## Security Checks
+
+PathResolver blocks these patterns:
+
+```javascript
+// Blocked paths
+'__proto__'; // Prototype pollution
+'constructor'; // Constructor access
+'prototype'; // Prototype chain
+
+// Blocked access
+typeof value === 'function'; // No function calls
+!obj.hasOwnProperty(key); // Only own properties
+```
+
+### Depth & Complexity Limits
+
+| Limit          | Default | Purpose                  |
+| -------------- | ------- | ------------------------ |
+| `maxDepth`     | 10      | Prevent infinite nesting |
+| `maxOperators` | 100     | Prevent DoS              |
+| `maxCacheSize` | 1000    | Memory limit             |
+
+---
+
+## Design Patterns
+
+| Pattern                     | Where                                       |
+| --------------------------- | ------------------------------------------- |
+| **Strategy**                | History, Concurrency, Retry managers        |
+| **Factory**                 | `createRuleEngine()`, `createRuleHelpers()` |
+| **Observer**                | Event system in StatefulRuleEngine          |
+| **Decorator**               | StatefulRuleEngine wraps RuleEngine         |
+| **Chain of Responsibility** | Error recovery pipeline                     |
+
+---
+
+## Key Files
+
+| File                      | Lines | Responsibility         |
+| ------------------------- | ----- | ---------------------- |
+| `RuleEngine.js`           | ~400  | Core evaluation        |
+| `StatefulRuleEngine.js`   | ~600  | State + events         |
+| `PathResolver.js`         | ~200  | Safe path access       |
+| `ErrorRecoveryManager.js` | ~300  | Recovery orchestration |
+
+---
+
+## Contributing
+
+<CardGroup cols={2}>
+  <Card title="Contributing Guide" icon="code-pull-request" href="/contributing">
+    How to submit changes
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="/guides/testing">
+    How to write tests
+  </Card>
+</CardGroup>
