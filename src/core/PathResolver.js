@@ -172,28 +172,48 @@ export class PathResolver {
 
     for (const key of keys) {
       if (current === null || current === undefined) {
-        return this.NOT_FOUND;
+        return this._resolveDottedKey(context, path);
       }
 
       // Security: Prevent prototype pollution
       if (!this.allowPrototypeAccess && this.PROTOTYPE_PROPS.has(key)) {
-        return this.NOT_FOUND;
+        return this._resolveDottedKey(context, path);
       }
 
       // Security: Only access own properties (not inherited)
       if (typeof current === 'object' && !Object.prototype.hasOwnProperty.call(current, key)) {
-        return this.NOT_FOUND;
+        return this._resolveDottedKey(context, path);
       }
 
       // Additional security: prevent access to functions unless explicitly allowed
       if (typeof current[key] === 'function' && !this.allowPrototypeAccess) {
-        return this.NOT_FOUND;
+        return this._resolveDottedKey(context, path);
       }
 
       current = current[key];
     }
 
     return current;
+  }
+
+  /**
+   * Resolve a dotted path stored as a single own property on the root context.
+   * Stateful contexts may keep previous values keyed by the full path string.
+   * @private
+   */
+  _resolveDottedKey(context, path) {
+    if (
+      context !== null &&
+      typeof context === 'object' &&
+      !Array.isArray(context) &&
+      (!this.allowPrototypeAccess || !this.PROTOTYPE_PROPS.has(path)) &&
+      Object.prototype.hasOwnProperty.call(context, path) &&
+      (this.allowPrototypeAccess || typeof context[path] !== 'function')
+    ) {
+      return context[path];
+    }
+
+    return this.NOT_FOUND;
   }
 
   /**
