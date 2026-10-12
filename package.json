@@ -38,42 +38,30 @@
     "test:imports": "node scripts/test-imports.js",
     "test:bundle": "npm run build && npm run test:imports:built",
     "test:imports:built": "node scripts/test-built-imports.js",
-    "lint": "eslint src/ --ext .js",
-    "lint:fix": "eslint src/ --ext .js --fix",
-    "lint:all": "eslint src/ tests/ --ext .js",
-    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\"",
+    "lint": "eslint src tests scripts \"*.{js,mjs,cjs}\" --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "lint:all": "npm run lint",
+    "format": "prettier --write \"{src,tests,scripts}/**/*.{js,mjs,cjs}\" \"*.{js,mjs,cjs,json}\" .prettierrc \".github/workflows/*.{yml,yaml}\"",
+    "format:check": "prettier --check \"{src,tests,scripts}/**/*.{js,mjs,cjs}\" \"*.{js,mjs,cjs,json}\" .prettierrc \".github/workflows/*.{yml,yaml}\"",
     "quality:check": "node scripts/quality-check.js",
     "prepare": "husky install",
     "pre-commit": "lint-staged && npm run test:quick",
-    "pre-push": "npm run test && npm run build && npm run quality:check",
+    "pre-push": "npm run quality:check",
     "test:quick": "npm test -- --passWithNoTests --bail",
-    "prepack": "npm run quality:check && npm run build",
-    "prepublishOnly": "npm run test && npm run build",
+    "prepack": "npm run quality:check",
+    "prepublishOnly": "npm run quality:check",
     "release:patch": "npm version patch && npm publish && git push --follow-tags",
     "release:minor": "npm version minor && npm publish && git push --follow-tags",
     "release:major": "npm version major && npm publish && git push --follow-tags"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs}": [
+    "{*.{js,mjs,cjs},{src,tests,scripts}/**/*.{js,mjs,cjs}}": [
       "eslint --max-warnings 0 --fix",
       "prettier --write"
     ],
-    "*.{json,md,yml,yaml}": [
+    "{*.json,.prettierrc,.github/workflows/*.{yml,yaml}}": [
       "prettier --write"
     ]
-  },
-  "eslintConfig": {
-    "env": {
-      "node": true,
-      "es2021": true,
-      "jest": true
-    },
-    "extends": "eslint:recommended",
-    "parserOptions": {
-      "ecmaVersion": "latest",
-      "sourceType": "module"
-    }
   },
   "sideEffects": false,
   "keywords": [
@@ -90,7 +78,7 @@
     "typescript"
   ],
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=22.0.0",
     "npm": ">=7.0.0"
   },
   "author": "Crafts 69 Guy <crafts69.guy@gmail.com>",

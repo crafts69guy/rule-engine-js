@@ -24,7 +24,7 @@ Welcome to Rule Engine JS! We're excited that you're interested in contributing.
 
 Before contributing, ensure you have:
 
-- **Node.js** 18+ installed
+- **Node.js** 22+ installed
 - **npm** 8+ or **yarn** 1.22+
 - **Git** for version control
 - A **GitHub account**
@@ -591,6 +591,7 @@ describe('Comparison Operators', () => {
 
 ### Test Requirements
 
+- **98% minimum global coverage** for statements, branches, functions, and lines; enforced by `npm run test:coverage` and `npm run quality:check`.
 - **100% code coverage** for new features
 - **Test edge cases** - null, undefined, empty values
 - **Test error conditions** - invalid inputs, malformed data
@@ -909,7 +910,7 @@ console.log(result); // Shows the problem
 **Environment:**
 
 - Rule Engine JS version: [e.g. 1.2.3]
-- Node.js version: [e.g. 18.15.0]
+- Node.js version: [e.g. 22.16.0]
 - OS: [e.g. Ubuntu 20.04]
 - Browser (if applicable): [e.g. Chrome 110]
 

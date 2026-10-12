@@ -1,0 +1,9 @@
+node_modules/
+dist/
+types/
+coverage/
+docs/
+examples/
+test-projects/
+package-lock.json
+yarn.lock

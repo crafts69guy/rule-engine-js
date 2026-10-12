@@ -273,7 +273,7 @@ describe('TypeUtils - Comprehensive Coverage', () => {
         expect(TypeUtils.isArray(Array.from([1, 2, 3]))).toBe(true);
       });
 
-      it('should reject non-arrays', () => {
+      it('should reject non-arrays', function () {
         expect(TypeUtils.isArray({})).toBe(false);
         expect(TypeUtils.isArray('array')).toBe(false);
         expect(TypeUtils.isArray(123)).toBe(false);

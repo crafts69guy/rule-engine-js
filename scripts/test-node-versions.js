@@ -32,10 +32,10 @@ const tests = [
       try {
         // Test if we can use import.meta
         return typeof import.meta === 'object' && import.meta.url;
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
+    },
   },
   {
     name: 'Modern JavaScript Features',
@@ -47,10 +47,10 @@ const tests = [
         // Test BigInt
         const bigInt = BigInt(123);
         return result === 1 && typeof bigInt === 'bigint';
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
+    },
   },
   {
     name: 'Performance API',
@@ -59,10 +59,10 @@ const tests = [
         const start = performance.now();
         const end = performance.now();
         return typeof start === 'number' && end >= start;
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
+    },
   },
   {
     name: 'Buffer Support',
@@ -70,10 +70,10 @@ const tests = [
       try {
         const buffer = Buffer.from('test', 'utf8');
         return buffer.toString() === 'test';
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
+    },
   },
   {
     name: 'WeakMap/WeakSet Support',
@@ -85,20 +85,20 @@ const tests = [
         wm.set(obj, 'value');
         ws.add(obj);
         return wm.get(obj) === 'value' && ws.has(obj);
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
+    },
   },
   {
     name: 'Promise Support',
     test: () => {
       try {
         return typeof Promise === 'function' && typeof Promise.resolve === 'function';
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
+    },
   },
   {
     name: 'Async/Await Support',
@@ -106,11 +106,11 @@ const tests = [
       try {
         const asyncFn = async () => 'test';
         return typeof asyncFn === 'function' && asyncFn.constructor.name === 'AsyncFunction';
-      } catch (e) {
+      } catch {
         return false;
       }
-    }
-  }
+    },
+  },
 ];
 
 let allPassed = true;
@@ -136,15 +136,16 @@ if (allPassed) {
 
 // Test if current Node.js version meets minimum requirements
 const nodeVersion = parseInt(currentVersion.replace('v', '').split('.')[0]);
-const minVersion = 16; // From your package.json engines
+const minVersion = 22; // From your package.json engines
 
 console.log(`\n🔍 Version Check: Node.js ${nodeVersion} >= ${minVersion}`);
 if (nodeVersion >= minVersion) {
   console.log('✅ Node.js version meets requirements');
 } else {
   console.log('❌ Node.js version is below minimum requirement');
-  console.log('💡 Please upgrade to Node.js 16 or higher');
+  console.log('💡 Please upgrade to Node.js 22 or higher');
   process.exit(1);
 }
 
 console.log('\n🎉 Node.js version compatibility check completed!');
+if (!allPassed) process.exit(1);

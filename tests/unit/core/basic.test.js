@@ -1,4 +1,4 @@
-const { createRuleEngine } = require('../../../src/index.js');
+const { createRuleEngine, RuleEngine } = require('../../../src/index.js');
 
 describe('Basic Engine Functionality', () => {
   let engine;
@@ -223,5 +223,73 @@ describe('Basic Engine Functionality', () => {
         expect(result.success).toBe(true);
       });
     });
+  });
+});
+
+describe('RuleEngine validation and cache boundaries', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('validates registrations and supports explicit replacement', () => {
+    expect(new RuleEngine().getOperators()).toEqual([]);
+    const engine = createRuleEngine();
+    expect(() => engine.registerOperator('eq', () => true)).toThrow('already exists');
+    expect(() => engine.registerOperator('invalid', null)).toThrow('must be a function');
+    engine.registerOperator('eq', () => false, { allowOverwrite: true });
+    expect(engine.evaluateExpr({ eq: [] }, {}).success).toBe(false);
+  });
+
+  it('rejects empty rules, excessive depth, operator counts and invalid arguments', () => {
+    const engine = createRuleEngine({ maxDepth: 0, maxOperators: 1 });
+    expect(engine.evaluateExpr({}, {}).error).toContain('at least one operator');
+    expect(engine._internal.engine.evaluateExpr({ eq: [1, 1] }, {}, 1).error).toContain(
+      'maximum depth'
+    );
+    expect(engine.evaluateExpr({ and: [{ eq: [1, 1] }] }, {}).error).toContain('maximum operators');
+    expect(engine.evaluateExpr({ eq: 'invalid' }, {}).error).toContain('Invalid arguments');
+  });
+
+  it('clears disabled caches without creating storage', () => {
+    const engine = createRuleEngine({ enableCache: false });
+    engine.clearCache();
+    expect(engine.getCacheStats()).toEqual({ expression: null, path: null });
+  });
+
+  it('caches contexts with identifiers, long values, nested collections and cycles', () => {
+    const circular = { value: 1 };
+    circular.self = circular;
+    const contexts = [
+      undefined,
+      { _id: 'a' },
+      { id: 'b' },
+      { value: 'x'.repeat(60), nullable: null, missing: undefined },
+      { values: [1, 2, 3, 4, 5, 6] },
+      Object.fromEntries(Array.from({ length: 11 }, (_, i) => [String(i), i])),
+      { a: { b: { c: { d: { e: { f: 1 } } } } } },
+      circular,
+    ];
+    for (const context of contexts) {
+      const engine = createRuleEngine();
+      const handler = jest.fn(() => true);
+      engine.registerOperator('custom', handler);
+      expect(engine.evaluateExpr({ custom: [] }, context).success).toBe(true);
+      expect(engine.evaluateExpr({ custom: [] }, context).success).toBe(true);
+      expect(handler).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('reports unexpected validation errors and logs them in debug mode', () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const engine = createRuleEngine({ enableDebug: true });
+    const rule = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error('unavailable');
+        },
+      }
+    );
+    const result = engine.evaluateExpr(rule, {});
+    expect(result).toMatchObject({ success: false, error: 'Expression evaluation failed' });
+    expect(log).toHaveBeenCalled();
   });
 });

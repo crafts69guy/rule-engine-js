@@ -44,6 +44,8 @@ const result = engine.evaluateExpr(rule, user);
 
 ## 📦 Installation
 
+Requires Node.js 22 or newer. The previous Node.js 16+ requirement has been raised; this is a breaking compatibility change.
+
 ```bash
 npm install rule-engine-js
 ```
