@@ -7,3 +7,6 @@ examples/
 test-projects/
 package-lock.json
 yarn.lock
+# shortcut: Claude requires workflows to match production; format them in a separate approved workflow change.
+.github/workflows/claude.yml
+.github/workflows/claude-code-review.yml
