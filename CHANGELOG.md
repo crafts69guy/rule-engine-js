@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-rc.1] - 2026-10-12
+
+### Breaking Changes
+
+- Requires Node.js 22 or newer, replacing the previous Node.js 16+ requirement.
+- Projects on older Node.js versions should remain on the 1.x release line until their runtime is upgraded.
+
+### Changed
+
+- Enforce ESLint and Prettier checks for source, JavaScript tests, scripts, root configuration, and workflow YAML.
+- Require at least 98% global statements, branches, functions, and lines coverage.
+- Run CI and release validation on Node.js 22 and 24.
+- Publish release candidates to npm's `next` tag; stable releases use `latest`.
+- Preserve the existing rule-engine public API and package import formats.
+
+### Fixed
+
+- Release concurrency evaluation timeout handles after success or failure.
+- Clean up circuit-breaker test timers so Jest exits normally.
+
+### Migration
+
+1. Upgrade local development, CI, and deployment runtimes to Node.js 22 or newer.
+2. Install the candidate explicitly with `npm install rule-engine-js@next` and run application tests.
+3. Keep `rule-engine-js@1` for environments that cannot upgrade yet.
+
 ## [1.0.3] - 2025-12-09
 
 ### Changed

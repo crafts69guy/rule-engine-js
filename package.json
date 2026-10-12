@@ -1,6 +1,6 @@
 {
   "name": "rule-engine-js",
-  "version": "1.0.7",
+  "version": "2.0.0-rc.1",
   "description": "A high-performance, secure rule engine with dynamic field comparison support",
   "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
@@ -50,9 +50,9 @@
     "test:quick": "npm test -- --passWithNoTests --bail",
     "prepack": "npm run quality:check",
     "prepublishOnly": "npm run quality:check",
-    "release:patch": "npm version patch && npm publish && git push --follow-tags",
-    "release:minor": "npm version minor && npm publish && git push --follow-tags",
-    "release:major": "npm version major && npm publish && git push --follow-tags"
+    "release:patch": "npm version patch",
+    "release:minor": "npm version minor",
+    "release:major": "npm version major"
   },
   "lint-staged": {
     "{*.{js,mjs,cjs},{src,tests,scripts}/**/*.{js,mjs,cjs}}": [

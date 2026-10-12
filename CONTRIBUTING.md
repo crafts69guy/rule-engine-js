@@ -1115,10 +1115,14 @@ We follow **Semantic Versioning (SemVer)**:
 **For maintainers:**
 
 1. **Update CHANGELOG.md**
-2. **Update version in package.json**
-3. **Create release tag**
-4. **Publish to npm**
-5. **Create GitHub release**
+2. **Update package.json and package-lock.json together**, for example `npm version 2.0.0-rc.1 --no-git-tag-version`.
+3. **Run `node scripts/check-release.cjs --self-test`, `npm run quality:check`, and package import checks**. Release CI also validates Node.js 22 and 24.
+4. **Commit the version and changelog, tag that commit, and push the branch followed by that tag**. The tag must exactly match `v` plus the package version.
+5. **Let the Release workflow publish the tested package and create the GitHub release**. Prereleases go to `next`; stable versions go to `latest`. The `release:patch`, `release:minor`, and `release:major` scripts only prepare a local version commit and tag.
+
+For the Node.js 22 migration, retain `latest` at `1.0.7` while testing `2.0.0-rc.1` on `next`. Before releasing `2.0.0`, verify the RC in a real application on Node.js 22/24 and record the current npm dist-tags. Prepare and tag `2.0.0` only after that check succeeds. To roll back new installations after a stable release, restore the recorded version with `npm dist-tag add rule-engine-js@1.0.7 latest`; applications already on 2.x must explicitly downgrade to 1.x or install a fixed 2.x release.
+
+To retry a failed release, rerun its failed jobs in GitHub Actions. The workflow's manual input selects an existing tag; it never creates or changes a version. A published npm version cannot be overwritten.
 
 **For contributors:**
 
