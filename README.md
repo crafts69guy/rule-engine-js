@@ -46,7 +46,7 @@ const result = engine.evaluateExpr(rule, user);
 
 Requires Node.js 22 or newer. The previous Node.js 16+ requirement has been raised; this is a breaking compatibility change.
 
-The 2.0 release candidate is available through `npm install rule-engine-js@next` after its release workflow completes. Upgrade local development, CI, and deployment runtimes before testing it. The rule-engine API and ESM/CommonJS imports are unchanged. Projects on older Node.js versions should use `npm install rule-engine-js@1`.
+Upgrade local development, CI, and deployment runtimes before installing 2.x. The rule-engine API and ESM/CommonJS imports are unchanged. Projects on older Node.js versions should use `npm install rule-engine-js@1`.
 
 ```bash
 npm install rule-engine-js
