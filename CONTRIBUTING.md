@@ -1120,7 +1120,9 @@ We follow **Semantic Versioning (SemVer)**:
 4. **Commit the version and changelog, tag that commit, and push the branch followed by that tag**. The tag must exactly match `v` plus the package version.
 5. **Let the Release workflow publish the tested package and create the GitHub release**. Prereleases go to `next`; stable versions go to `latest`. The `release:patch`, `release:minor`, and `release:major` scripts only prepare a local version commit and tag.
 
-For the Node.js 22 migration, retain `latest` at `1.0.7` while testing `2.0.0-rc.1` on `next`. Before releasing `2.0.0`, verify the RC in a real application on Node.js 22/24 and record the current npm dist-tags. Prepare and tag `2.0.0` only after that check succeeds. To roll back new installations after a stable release, restore the recorded version with `npm dist-tag add rule-engine-js@1.0.7 latest`; applications already on 2.x must explicitly downgrade to 1.x or install a fixed 2.x release.
+For the Node.js 22 migration, retain `latest` at `1.0.7` until publishing `2.0.0`; `next` contains `2.0.0-rc.1`. The RC installed from npm passed the repository's Node CLI tests and React/webpack production builds on Node.js 22 and 24. The maintainer selected these sample applications as the rollout acceptance check. Merge the stable release PR before tagging its production commit as `v2.0.0`. To roll back new installations after a stable release, restore the recorded version with `npm dist-tag add rule-engine-js@1.0.7 latest`; applications already on 2.x must explicitly downgrade to 1.x or install a fixed 2.x release.
+
+Before triggering publication, ensure the repository's `NPM_TOKEN` secret has publish access to `rule-engine-js`. The RC's automated publish failed; its exact CI artifact was published with the owner's authenticated npm session. Do not retry the publish job for an already published version. Keep credentials in npm/GitHub settings rather than issues or release notes.
 
 To retry a failed release, rerun its failed jobs in GitHub Actions. The workflow's manual input selects an existing tag; it never creates or changes a version. A published npm version cannot be overwritten.
 
