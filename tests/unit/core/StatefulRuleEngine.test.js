@@ -997,3 +997,171 @@ describe('StatefulRuleEngine', () => {
     });
   });
 });
+
+describe('Stateful lifecycle boundaries', () => {
+  let engine;
+
+  beforeEach(() => {
+    engine = new StatefulRuleEngine(createRuleEngine());
+  });
+  afterEach(async () => {
+    await engine.destroy();
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('selects per-rule history and default concurrency for an empty config', async () => {
+    await engine.destroy();
+    engine = new StatefulRuleEngine(createRuleEngine(), { maxHistoryPerRule: 2, concurrency: {} });
+    expect(engine.getHistoryStats()).toMatchObject({ mode: 'per-rule', maxPerRule: 2 });
+    expect(engine.getConcurrencyStats().mode).toBe('parallel');
+  });
+
+  it('deep-copies own data and omits inherited and internal metadata', () => {
+    const context = Object.assign(Object.create({ inherited: true }), {
+      value: { nested: 1 },
+      _previous: { old: true },
+      _meta: { hasChangeOperator: true },
+    });
+    const copy = engine.deepCopy(context);
+    expect(copy).toEqual({ value: { nested: 1 } });
+    expect(copy.value).not.toBe(context.value);
+  });
+
+  it('evaluates registered fallback rules after unexpected evaluation failures', async () => {
+    await engine.destroy();
+    engine = new StatefulRuleEngine(createRuleEngine(), {
+      errorRecovery: { retry: { enabled: false } },
+    });
+    const fallback = { eq: [1, 1] };
+    engine.registerFallbackRule('rule', fallback);
+    const evaluate = jest.spyOn(engine.engine, 'evaluateExpr').mockImplementationOnce(() => {
+      throw new Error('primary failed');
+    });
+    await expect(engine.evaluate('rule', { eq: [1, 2] }, {})).resolves.toMatchObject({
+      success: true,
+    });
+    expect(evaluate.mock.calls[1][0]).toEqual(fallback);
+  });
+
+  it('expires old states on the cleanup interval and does not start duplicate timers', async () => {
+    jest.useFakeTimers();
+    await engine.destroy();
+    engine = new StatefulRuleEngine(createRuleEngine(), {
+      stateExpirationMs: 10,
+      cleanupIntervalMs: 20,
+    });
+    await engine.evaluate('rule', { eq: [1, 1] }, {});
+    const timer = engine.cleanupTimer;
+    engine.startCleanupTimer();
+    expect(engine.cleanupTimer).toBe(timer);
+    await jest.advanceTimersByTimeAsync(20);
+    expect(engine.previousStates.size).toBe(0);
+    expect(engine.ruleStates.size).toBe(0);
+    expect(engine.stateTimestamps.size).toBe(0);
+  });
+
+  it('leaves states alone when expiration is disabled and exposes stored history', async () => {
+    await engine.destroy();
+    engine = new StatefulRuleEngine(createRuleEngine(), { storeHistory: true });
+    await engine.evaluate('rule', { eq: [1, 1] }, {});
+    expect(engine.cleanupExpiredStates()).toEqual({ removedCount: 0 });
+    expect(engine.getAllHistory()).toHaveLength(1);
+    expect(engine.getStateStats().memoryEstimate.history).toBe('~1KB');
+  });
+
+  it('ignores unknown events and callbacks while removing listeners safely', () => {
+    const callback = jest.fn();
+    engine.on('unknown', callback);
+    engine.off('unknown', callback);
+    engine.emit('unknown', {});
+    engine.removeAllListeners('unknown');
+    engine.on('evaluated', callback);
+    engine.off('evaluated', () => {});
+    expect(engine.getListenerCount('unknown')).toBe(0);
+    expect(engine.getListenerCount('evaluated')).toBe(1);
+    engine.removeAllListeners('evaluated');
+    expect(engine.getListenerCount('evaluated')).toBe(0);
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('logs failing listeners without stopping later listeners', async () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const callback = jest.fn();
+    engine.on('evaluated', () => {
+      throw new Error('listener failure');
+    });
+    engine.on('evaluated', callback);
+    await engine.evaluate('rule', { eq: [1, 1] }, {});
+    expect(log).toHaveBeenCalledWith('Error in evaluated listener:', expect.any(Error));
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([{ stopOnError: true }, { stopOnError: false, collectErrors: false }])(
+    'handles rejected batch evaluations with %p',
+    async (options) => {
+      jest.spyOn(engine.engine, 'evaluateExpr').mockImplementationOnce(() => {
+        throw new Error('unexpected');
+      });
+      const result = await engine.evaluateBatch(
+        { bad: { eq: [] }, good: { eq: [1, 1] } },
+        {},
+        options
+      );
+      expect(result.errorCount).toBe(1);
+      expect(result.results.bad).toMatchObject({ success: false, error: 'unexpected' });
+      expect(result.successCount).toBe(options.stopOnError ? 0 : 1);
+      if (options.collectErrors === false) {
+        expect(result.errors).toBeUndefined();
+      } else {
+        expect(result.errors[0]).toMatchObject({
+          ruleId: 'bad',
+          error: { message: 'unexpected', name: 'Error' },
+        });
+      }
+    }
+  );
+
+  it('does nothing for optional persistence hooks when persistence is absent or disabled', async () => {
+    expect(() => engine.validatePersistenceConfig()).not.toThrow();
+    await expect(engine.flushPendingSaves()).resolves.toBeUndefined();
+    await expect(engine.saveHistoryEntry({})).resolves.toBeUndefined();
+    engine.options.persistence = { enabled: false };
+    expect(() => engine.validatePersistenceConfig()).not.toThrow();
+  });
+
+  it('loads and hydrates partial states without inventing missing values', async () => {
+    engine.options.persistence = {
+      enabled: true,
+      onStateLoad: async () => ({ previousContext: { value: 1 } }),
+    };
+    await engine.loadState('rule');
+    expect(engine.previousStates.get('rule')).toEqual({ value: 1 });
+    expect(engine.ruleStates.has('rule')).toBe(false);
+    expect(engine.stateTimestamps.has('rule')).toBe(false);
+    expect(await engine.hydrate({ states: { empty: {} }, history: {} })).toMatchObject({
+      restoredRules: 1,
+      restoredHistory: 0,
+    });
+    expect(engine.previousStates.size).toBe(0);
+    expect(await engine.hydrate({})).toMatchObject({ restoredRules: 0, restoredHistory: 0 });
+  });
+
+  it('does not start duplicate persistence timers', async () => {
+    jest.useFakeTimers();
+    await engine.destroy();
+    engine = new StatefulRuleEngine(createRuleEngine(), {
+      persistence: { enabled: true, autoSaveInterval: 10, onStateSave: jest.fn() },
+    });
+    const timer = engine.persistenceTimer;
+    engine.startPersistenceTimer();
+    expect(engine.persistenceTimer).toBe(timer);
+    expect(jest.getTimerCount()).toBe(1);
+  });
+
+  it('checks nested change rules and treats literal arguments as neutral', () => {
+    expect(engine.isPureChangeRule({ or: [null, { changed: ['value'] }] })).toBe(true);
+    expect(engine.isPureChangeRule({ and: 'invalid' })).toBe(true);
+    expect(engine.isPureChangeRule({ and: [{ eq: [1, 1] }] })).toBe(false);
+  });
+});

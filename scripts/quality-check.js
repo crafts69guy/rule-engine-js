@@ -57,15 +57,15 @@ async function runQualityChecks() {
       required: true,
     },
     {
-      name: 'Tests',
-      command: 'npm',
-      args: ['run', 'test'],
-      required: true,
-    },
-    {
       name: 'Build',
       command: 'npm',
       args: ['run', 'build'],
+      required: true,
+    },
+    {
+      name: 'Tests and Coverage',
+      command: 'npm',
+      args: ['run', 'test:coverage'],
       required: true,
     },
     {

@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -49,7 +49,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -80,7 +80,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -104,7 +104,7 @@ jobs:
             echo "📦 Minified bundle size: ${SIZE_KB}KB"
             echo "📊 Size limit: ${LIMIT_KB}KB"
             
-            if [ $SIZE -gt $((LIMIT_KB * 1024)) ]; then
+            if [ "$SIZE" -gt $((LIMIT_KB * 1024)) ]; then
               echo "❌ Bundle size ${SIZE_KB}KB exceeds ${LIMIT_KB}KB limit"
               exit 1
             else
@@ -114,37 +114,6 @@ jobs:
             echo "⚠️ Minified bundle not found"
             exit 1
           fi
-
-      - name: Comment bundle size on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-
-            // Read bundle sizes
-            const files = ['dist/index.js', 'dist/index.min.js', 'dist/index.esm.js', 'dist/index.cjs'];
-            let sizeReport = '## 📦 Bundle Size Report\n\n';
-            sizeReport += '| File | Size | Gzipped |\n';
-            sizeReport += '|------|------|----------|\n';
-
-            for (const file of files) {
-              if (fs.existsSync(file)) {
-                const stats = fs.statSync(file);
-                const sizeKB = (stats.size / 1024).toFixed(1);
-                sizeReport += `| ${file} | ${sizeKB}KB | ~${(sizeKB * 0.3).toFixed(1)}KB |\n`;
-              }
-            }
-
-            sizeReport += '\n*Gzipped sizes are estimated*';
-
-            // Comment on PR
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: sizeReport
-            });
 
   compatibility:
     name: Node.js Compatibility Test
@@ -157,7 +126,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies

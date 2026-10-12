@@ -1,4 +1,5 @@
-const { createRuleEngine, createRuleHelpers } = require('../../../src/index.js');
+const { createRuleEngine, createRuleHelpers, PathResolver } = require('../../../src/index.js');
+const { RegexOperator } = require('../../../src/operators/regex.js');
 
 describe('Regex Operator - Comprehensive Coverage', () => {
   let engine;
@@ -1076,5 +1077,19 @@ describe('Regex Operator - Comprehensive Coverage', () => {
       // Should complete without hanging (will be false since no 'b' at end)
       expect(result.success).toBe(false);
     });
+  });
+});
+
+describe('Regex cache lifecycle', () => {
+  it('reuses compiled patterns, evicts old entries and clears its cache', () => {
+    const operator = new RegexOperator(new PathResolver(), { maxCacheSize: 1 });
+    const first = operator.getCompiledRegex('a');
+    expect(operator.getCompiledRegex('a')).toBe(first);
+    expect(operator.getCompiledRegex('b').test('b')).toBe(true);
+    expect(operator.regexCache.has('a:::')).toBe(false);
+    expect(operator.getCacheStats()).toEqual({ size: 1, maxSize: 1 });
+    operator.clearCache();
+    expect(operator.getCacheStats().size).toBe(0);
+    expect(new RegexOperator(new PathResolver(), {}).getCacheStats().maxSize).toBe(1000);
   });
 });

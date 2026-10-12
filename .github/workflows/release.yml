@@ -7,204 +7,136 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., v1.0.0)'
+        description: 'Existing release tag to retry (e.g. v2.0.0-rc.1)'
         required: true
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.version || github.ref_name }}
+
 jobs:
   test:
-    name: Pre-release Testing
+    name: Validate release on Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 24]
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      dist_tag: ${{ steps.release.outputs.dist_tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      commit: ${{ steps.release.outputs.commit }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout release tag
         uses: actions/checkout@v4
         with:
-          ref: production # Ensure we're on production branch
+          ref: refs/tags/${{ inputs.version || github.ref_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Validate tag, version, and release notes
+        id: release
+        run: |
+          node scripts/check-release.cjs --self-test
+          node scripts/check-release.cjs "$RELEASE_TAG"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run full test suite
-        run: |
-          npm run lint
-          npm run format:check
-          npm run test:coverage
-          npm run build
-          npm run test:all-envs
-          npm run build:analyze
 
       - name: Run quality checks
         run: npm run quality:check
 
-      - name: Verify package contents
+      - name: Test source and built imports
         run: |
-          npm pack
-          tar -tf *.tgz > package-contents.txt
-          echo "📦 Package contents:"
-          cat package-contents.txt
+          npm run test:node-versions
+          npm run test:imports
+          npm run test:imports:built
 
-          # Verify required files are present
-          required_files=("dist/index.js" "dist/index.cjs" "dist/index.esm.js" "types/index.d.ts")
-          for file in "${required_files[@]}"; do
-            if grep -q "$file" package-contents.txt; then
-              echo "✅ $file found in package"
-            else
-              echo "❌ $file missing from package"
-              exit 1
-            fi
+      - name: Pack validated package
+        if: matrix.node-version == 22
+        run: |
+          npm pack --ignore-scripts
+          tar -tf rule-engine-js-*.tgz > "$RUNNER_TEMP/package-contents.txt"
+          for file in package/dist/index.js package/dist/index.cjs package/dist/index.esm.js package/types/index.d.ts package/CHANGELOG.md; do
+            grep -Fx "$file" "$RUNNER_TEMP/package-contents.txt"
           done
 
+      - name: Upload validated package
+        if: matrix.node-version == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: rule-engine-js-*.tgz
+
   publish:
-    name: Publish to npm
+    name: Publish validated package to npm
     runs-on: ubuntu-latest
     needs: test
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: production
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build package
-        run: npm run build
-
-      - name: Extract version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION=${GITHUB_REF#refs/tags/}
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Publishing version: $VERSION"
-
-      - name: Update package version
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          npm version ${VERSION#v} --no-git-tag-version
-
-      - name: Publish to npm
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create package artifact
-        run: npm pack
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v3
+      - name: Download validated package
+        uses: actions/download-artifact@v4
         with:
-          name: npm-package-${{ steps.version.outputs.VERSION }}
-          path: '*.tgz'
+          name: npm-package
+
+      - name: Publish package
+        env:
+          DIST_TAG: ${{ needs.test.outputs.dist_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish ./rule-engine-js-*.tgz --tag "$DIST_TAG"
 
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: publish
-
+    needs: [test, publish]
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
+      - name: Checkout validated commit
         uses: actions/checkout@v4
         with:
-          ref: production
-          fetch-depth: 0 # Fetch full history for changelog
+          ref: ${{ needs.test.outputs.commit }}
 
-      - name: Extract version from tag or input
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION=${GITHUB_REF#refs/tags/}
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "CLEAN_VERSION=${VERSION#v}" >> $GITHUB_OUTPUT
-
-      - name: Download package artifact
-        uses: actions/download-artifact@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          name: npm-package-${{ steps.version.outputs.VERSION }}
+          node-version: '22'
 
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          # Extract changelog section for this version
-          if [ -f CHANGELOG.md ]; then
-            # Get the section for this version from CHANGELOG.md
-            sed -n "/## \[${CLEAN_VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 > release-notes.md
-            
-            # If no specific version found, use the unreleased section
-            if [ ! -s release-notes.md ]; then
-              echo "## What's New in ${{ steps.version.outputs.VERSION }}" > release-notes.md
-              echo "" >> release-notes.md
-              echo "For detailed changes, see [CHANGELOG.md](CHANGELOG.md)" >> release-notes.md
-            fi
-          else
-            echo "## Release ${{ steps.version.outputs.VERSION }}" > release-notes.md
-            echo "" >> release-notes.md
-            echo "See commit history for changes in this release." >> release-notes.md
-          fi
+      - name: Download published package
+        uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+
+      - name: Extract release notes
+        id: release
+        run: node scripts/check-release.cjs "$RELEASE_TAG"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.VERSION }}
-          name: Release ${{ steps.version.outputs.VERSION }}
-          body_path: release-notes.md
-          files: '*.tgz'
-          draft: false
-          prerelease: false
-          target_commitish: production
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  notify:
-    name: Post-release Notifications
-    runs-on: ubuntu-latest
-    needs: [publish, github-release]
-    if: always()
-
-    steps:
-      - name: Extract version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION=${GITHUB_REF#refs/tags/}
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Notify success
-        if: needs.publish.result == 'success' && needs.github-release.result == 'success'
-        run: |
-          echo "🎉 Successfully released rule-engine-js ${{ steps.version.outputs.VERSION }}"
-          echo "📦 npm: https://www.npmjs.com/package/rule-engine-js"
-          echo "🐙 GitHub: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.VERSION }}"
-
-      - name: Notify failure
-        if: needs.publish.result == 'failure' || needs.github-release.result == 'failure'
-        run: |
-          echo "❌ Release ${{ steps.version.outputs.VERSION }} failed"
-          echo "📋 Check the workflow logs for details"
-          exit 1
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Release ${{ env.RELEASE_TAG }}
+          body_path: ${{ steps.release.outputs.notes_file }}
+          files: rule-engine-js-*.tgz
+          fail_on_unmatched_files: true
+          prerelease: ${{ needs.test.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.test.outputs.prerelease == 'false' }}
+          target_commitish: ${{ needs.test.outputs.commit }}

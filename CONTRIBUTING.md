@@ -24,7 +24,7 @@ Welcome to Rule Engine JS! We're excited that you're interested in contributing.
 
 Before contributing, ensure you have:
 
-- **Node.js** 18+ installed
+- **Node.js** 22+ installed
 - **npm** 8+ or **yarn** 1.22+
 - **Git** for version control
 - A **GitHub account**
@@ -591,6 +591,7 @@ describe('Comparison Operators', () => {
 
 ### Test Requirements
 
+- **98% minimum global coverage** for statements, branches, functions, and lines; enforced by `npm run test:coverage` and `npm run quality:check`.
 - **100% code coverage** for new features
 - **Test edge cases** - null, undefined, empty values
 - **Test error conditions** - invalid inputs, malformed data
@@ -909,7 +910,7 @@ console.log(result); // Shows the problem
 **Environment:**
 
 - Rule Engine JS version: [e.g. 1.2.3]
-- Node.js version: [e.g. 18.15.0]
+- Node.js version: [e.g. 22.16.0]
 - OS: [e.g. Ubuntu 20.04]
 - Browser (if applicable): [e.g. Chrome 110]
 
@@ -1114,10 +1115,14 @@ We follow **Semantic Versioning (SemVer)**:
 **For maintainers:**
 
 1. **Update CHANGELOG.md**
-2. **Update version in package.json**
-3. **Create release tag**
-4. **Publish to npm**
-5. **Create GitHub release**
+2. **Update package.json and package-lock.json together**, for example `npm version 2.0.0-rc.1 --no-git-tag-version`.
+3. **Run `node scripts/check-release.cjs --self-test`, `npm run quality:check`, and package import checks**. Release CI also validates Node.js 22 and 24.
+4. **Commit the version and changelog, tag that commit, and push the branch followed by that tag**. The tag must exactly match `v` plus the package version.
+5. **Let the Release workflow publish the tested package and create the GitHub release**. Prereleases go to `next`; stable versions go to `latest`. The `release:patch`, `release:minor`, and `release:major` scripts only prepare a local version commit and tag.
+
+For the Node.js 22 migration, retain `latest` at `1.0.7` while testing `2.0.0-rc.1` on `next`. Before releasing `2.0.0`, verify the RC in a real application on Node.js 22/24 and record the current npm dist-tags. Prepare and tag `2.0.0` only after that check succeeds. To roll back new installations after a stable release, restore the recorded version with `npm dist-tag add rule-engine-js@1.0.7 latest`; applications already on 2.x must explicitly downgrade to 1.x or install a fixed 2.x release.
+
+To retry a failed release, rerun its failed jobs in GitHub Actions. The workflow's manual input selects an existing tag; it never creates or changes a version. A published npm version cannot be overwritten.
 
 **For contributors:**
 

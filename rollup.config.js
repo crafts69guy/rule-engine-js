@@ -48,7 +48,7 @@ const createConfig = (format, filename, { minify = false, external = [] } = {}) 
                     browsers: ['> 1%', 'last 2 versions', 'not dead'],
                   }
                 : {
-                    node: '16',
+                    node: '22',
                   },
             modules: false, // Keep ES modules for Rollup
             bugfixes: true,

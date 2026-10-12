@@ -160,3 +160,15 @@ describe('Special Operators', () => {
     });
   });
 });
+
+describe('Null checks with literal values', () => {
+  it.each([null, undefined, 0, false, {}, []])(
+    'checks literal %p without treating it as a path',
+    (value) => {
+      const engine = createRuleEngine();
+      const isNull = value === null || value === undefined;
+      expect(engine.evaluateExpr({ isNull: [value] }, {}).success).toBe(isNull);
+      expect(engine.evaluateExpr({ isNotNull: [value] }, {}).success).toBe(!isNull);
+    }
+  );
+});

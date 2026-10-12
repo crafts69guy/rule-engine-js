@@ -1,19 +1,20 @@
 // jest.config.cjs
 module.exports = {
   testEnvironment: 'node',
+  watchman: false,
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 
   collectCoverageFrom: ['src/**/*.js', '!src/**/*.test.js', '!src/**/*.spec.js'],
 
   coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
 
   coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
+      branches: 98,
+      functions: 98,
+      lines: 98,
+      statements: 98,
     },
   },
 

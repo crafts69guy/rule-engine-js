@@ -998,3 +998,21 @@ describe('RuleHelpers - Comprehensive Branch Coverage', () => {
     });
   });
 });
+
+describe('Explicit empty string-helper options', () => {
+  it.each(['contains', 'startsWith', 'endsWith', 'regex'])(
+    '%s replaces null options with an empty object',
+    (method) => {
+      const helpers = createRuleHelpers();
+      const expression = helpers[method]('name', 'test', null);
+      expect(Object.values(expression)[0]).toEqual(['name', 'test', {}]);
+      expect(createRuleEngine().evaluateExpr(expression, { name: 'test' }).success).toBe(true);
+    }
+  );
+
+  it('replaces null exclusion options without changing membership behavior', () => {
+    const expression = createRuleHelpers().notIn('value', [1, 2], null);
+    expect(expression).toEqual({ notIn: ['value', [1, 2], {}] });
+    expect(createRuleEngine().evaluateExpr(expression, { value: 3 }).success).toBe(true);
+  });
+});

@@ -1017,3 +1017,71 @@ describe('PerRuleConcurrencyManager', () => {
     });
   });
 });
+
+describe.each([SequentialConcurrencyManager, PerRuleConcurrencyManager])(
+  '%p timer lifecycle',
+  (Manager) => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
+    it('releases timeout handles after success, rejection and synchronous throws', async () => {
+      const manager = new Manager({ evaluationTimeout: 100 });
+      await expect(manager.execute('rule', async () => 'success')).resolves.toBe('success');
+      expect(jest.getTimerCount()).toBe(0);
+      await expect(
+        manager.execute('rule', async () => {
+          throw new Error('rejected');
+        })
+      ).rejects.toThrow('rejected');
+      expect(jest.getTimerCount()).toBe(0);
+      await expect(
+        manager.execute('rule', () => {
+          throw new Error('synchronous');
+        })
+      ).rejects.toThrow('synchronous');
+      expect(jest.getTimerCount()).toBe(0);
+      expect(manager.getQueueSize()).toBe(0);
+    });
+
+    it('still times out stalled tasks and proceeds to the next task', async () => {
+      const manager = new Manager({ evaluationTimeout: 100 });
+      const stalled = manager.execute('rule', () => new Promise(() => {}));
+      const rejection = expect(stalled).rejects.toThrow('Evaluation timeout');
+      const next = manager.execute('rule', async () => 'next');
+      await jest.advanceTimersByTimeAsync(100);
+      await rejection;
+      await expect(next).resolves.toBe('next');
+      expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it.each([false, true])(
+      'rejects expired queued tasks with a timeout callback: %p',
+      async (withCallback) => {
+        const onTimeout = withCallback ? jest.fn() : undefined;
+        const manager = new Manager({ evaluationTimeout: 100, onTimeout });
+        let finish;
+        const first = manager.execute(
+          'rule',
+          () =>
+            new Promise((resolve) => {
+              finish = resolve;
+            })
+        );
+        const evaluate = jest.fn(() => 'expired');
+        const expired = manager.execute('rule', evaluate);
+        const rejection = expect(expired).rejects.toThrow('Evaluation timeout for rule');
+        jest.setSystemTime(Date.now() + 101);
+        finish('first');
+        await expect(first).resolves.toBe('first');
+        await rejection;
+        expect(evaluate).not.toHaveBeenCalled();
+        if (withCallback) expect(onTimeout).toHaveBeenCalledWith('rule', 101);
+        expect(manager.getQueueSize()).toBe(0);
+        expect(jest.getTimerCount()).toBe(0);
+      }
+    );
+  }
+);

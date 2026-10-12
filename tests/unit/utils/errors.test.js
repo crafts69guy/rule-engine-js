@@ -510,7 +510,7 @@ describe('Error Classes - Comprehensive Coverage', () => {
   describe('Integration with Rule Engine', () => {
     it('should create errors that integrate with rule engine error handling', () => {
       // Simulate how the rule engine might create and handle errors
-      function simulateRuleEngineErrorHandling(operatorName, args, context) {
+      function simulateRuleEngineErrorHandling(operatorName, args) {
         try {
           // Simulate some operation that might fail
           if (args.length === 0) {

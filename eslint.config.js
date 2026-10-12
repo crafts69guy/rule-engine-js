@@ -2,6 +2,9 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
+  {
+    ignores: ['dist/**', 'types/**', 'coverage/**', 'docs/**', 'examples/**', 'test-projects/**'],
+  },
   js.configs.recommended,
   {
     languageOptions: {
@@ -9,9 +12,19 @@ export default [
       sourceType: 'module',
       globals: {
         ...globals.node,
-        ...globals.jest,
         ...globals.es2021,
-        // Test helpers from tests/setup.js
+      },
+    },
+  },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs' },
+  },
+  {
+    files: ['tests/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
         expectRuleToPass: 'readonly',
         expectRuleToFail: 'readonly',
         testContext: 'readonly',

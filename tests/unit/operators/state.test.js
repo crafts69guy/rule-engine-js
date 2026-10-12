@@ -22,6 +22,21 @@ describe('State Change Operators', () => {
     _meta: { hasChangeOperator: false },
   });
 
+  it.each([
+    ['changed', ['value']],
+    ['changedBy', ['value', 1]],
+    ['changedFrom', ['value', 1]],
+    ['changedTo', ['value', 2]],
+    ['increased', ['value']],
+    ['decreased', ['value']],
+  ])('%s supports contexts without internal metadata', (name, args) => {
+    const context = { value: 2, $previous: { value: 1 } };
+    const result = engine.evaluateExpr({ [name]: args }, context);
+    expect(result.error).toBeUndefined();
+    expect(result.success).toBe(name !== 'decreased');
+    expect(context._meta).toBeUndefined();
+  });
+
   describe('CHANGED Operator', () => {
     it('should return false when no previous context', () => {
       const context = createContext({ user: { status: 'active' } });

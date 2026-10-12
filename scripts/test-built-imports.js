@@ -11,21 +11,16 @@ console.log('🧪 Testing Built Package Imports\n');
 console.log(`📍 Project root: ${projectRoot}`);
 
 const testData = {
-  user: { name: 'Test User', age: 25, email: 'test@example.com' }
+  user: { name: 'Test User', age: 25, email: 'test@example.com' },
 };
 
 let allPassed = true;
 
 // Check if dist files exist
-const distFiles = [
-  'dist/index.js',
-  'dist/index.min.js',
-  'dist/index.esm.js',
-  'dist/index.cjs'
-];
+const distFiles = ['dist/index.js', 'dist/index.min.js', 'dist/index.esm.js', 'dist/index.cjs'];
 
 console.log('\n📁 Checking build files:');
-distFiles.forEach(file => {
+distFiles.forEach((file) => {
   const fullPath = join(projectRoot, file);
   if (existsSync(fullPath)) {
     console.log(`✅ ${file} exists`);
@@ -51,7 +46,7 @@ function runTest(name, code, isModule = true) {
     const output = execSync(`node ${filename}`, {
       encoding: 'utf8',
       timeout: 10000,
-      cwd: projectRoot
+      cwd: projectRoot,
     });
 
     console.log(`✅ ${name}`);

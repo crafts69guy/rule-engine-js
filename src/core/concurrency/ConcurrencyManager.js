@@ -119,6 +119,7 @@ export class SequentialConcurrencyManager extends ConcurrencyManager {
       const task = this.queue.shift();
       this.queueSize = this.queue.length;
 
+      let timeout;
       try {
         // Check for timeout
         const age = Date.now() - task.timestamp;
@@ -133,17 +134,19 @@ export class SequentialConcurrencyManager extends ConcurrencyManager {
         // Execute with timeout
         const result = await Promise.race([
           task.evaluationFn(),
-          new Promise((_, reject) =>
-            setTimeout(
+          new Promise((_, reject) => {
+            timeout = setTimeout(
               () => reject(new Error('Evaluation timeout')),
               this.options.evaluationTimeout - age
-            )
-          ),
+            );
+          }),
         ]);
 
         task.resolve(result);
       } catch (error) {
         task.reject(error);
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
@@ -232,6 +235,7 @@ export class PerRuleConcurrencyManager extends ConcurrencyManager {
       const task = ruleQueue.queue.shift();
       this.updateQueueSize();
 
+      let timeout;
       try {
         // Check for timeout
         const age = Date.now() - task.timestamp;
@@ -246,17 +250,19 @@ export class PerRuleConcurrencyManager extends ConcurrencyManager {
         // Execute with timeout
         const result = await Promise.race([
           task.evaluationFn(),
-          new Promise((_, reject) =>
-            setTimeout(
+          new Promise((_, reject) => {
+            timeout = setTimeout(
               () => reject(new Error('Evaluation timeout')),
               this.options.evaluationTimeout - age
-            )
-          ),
+            );
+          }),
         ]);
 
         task.resolve(result);
       } catch (error) {
         task.reject(error);
+      } finally {
+        clearTimeout(timeout);
       }
     }
 

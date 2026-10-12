@@ -410,6 +410,12 @@ describe('CircuitBreaker', () => {
   });
 
   describe('halfOpenCircuit', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
     it('should set state to half-open', () => {
       const breaker = new CircuitBreaker();
       breaker.openCircuit('test-rule');
@@ -516,6 +522,12 @@ describe('CircuitBreaker', () => {
   });
 
   describe('getState', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
     it('should return closed state for new circuit', () => {
       const breaker = new CircuitBreaker();
       expect(breaker.getState('test-rule')).toBe(CircuitState.CLOSED);
@@ -603,6 +615,12 @@ describe('CircuitBreaker', () => {
   });
 
   describe('getStats', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
     it('should return stats with no circuits', () => {
       const breaker = new CircuitBreaker();
 

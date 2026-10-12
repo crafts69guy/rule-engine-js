@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16, 18, 20]
+        node-version: [22, 24]
 
     steps:
       - name: Checkout code
@@ -28,12 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linting (Node.js 18+ only)
-        if: matrix.node-version >= 18
+      - name: Run linting
         run: npm run lint
 
-      - name: Check formatting (Node.js 18+ only)
-        if: matrix.node-version >= 18
+      - name: Check formatting
         run: npm run format:check
 
       - name: Build project
@@ -43,7 +41,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage to Codecov
-        if: matrix.node-version == 18
+        if: matrix.node-version == 22
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -60,7 +58,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -83,16 +81,16 @@ jobs:
       - name: Validate build outputs
         run: |
           echo "✅ Validating build outputs..."
-          
+
           # Check expected files exist
           test -f dist/index.js && echo "✅ Main build exists"
           test -f dist/index.esm.js && echo "✅ ESM build exists" 
           test -f dist/index.cjs && echo "✅ CJS build exists"
           test -f types/index.d.ts && echo "✅ TypeScript definitions exist"
-          
+
           # Basic syntax validation
           node -c dist/index.cjs && echo "✅ CJS build syntax valid"
-          
+
           echo "🎉 All builds validated"
 
       - name: Store build artifacts
